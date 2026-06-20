@@ -3,7 +3,7 @@ import { trackMoneyFlow, TrackingOptions } from '@/lib/helius';
 import { generateMoneyFlowSummary } from '@/lib/anthropic';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 600; // 10 minutes max duration
+export const maxDuration = 300; // 5 minutes max duration (Vercel Hobby plan limit)
 
 export async function POST(request: NextRequest) {
   const encoder = new TextEncoder();
