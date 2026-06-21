@@ -25,6 +25,11 @@ export default function TrackPage() {
   // Use the shared tree structure to get enriched transfers with depth
   const enrichedTransfers = useMemo<EnrichedTransfer[]>(() => {
     if (transfers.length === 0 || !walletAddress) return [];
+    console.log('=== Transfers passed to buildTransferTree ===');
+    console.log(`Total transfers: ${transfers.length}`);
+    transfers.forEach((t, i) => {
+      console.log(`  ${i + 1}. from=${t.from.slice(0, 8)}... to=${t.to.slice(0, 8)}... amount=${t.amount.toFixed(2)}`);
+    });
     const result = buildTransferTree(transfers, walletAddress);
     return result.enrichedTransfers;
   }, [transfers, walletAddress]);

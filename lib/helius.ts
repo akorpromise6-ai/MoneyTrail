@@ -251,7 +251,8 @@ export async function trackMoneyFlow(
   const { endWalletAddress, exchangeTarget, maxDepth = DEFAULT_MAX_DEPTH, onProgress, onTransferFound } = options;
   
   const allTransfers: Transfer[] = [];
-  const visited = new Set<string>();
+  const visited = new Set<string>(); // Prevents re-exploring the same wallet
+  const connectedWallets = new Set<string>([startAddress]); // Only wallets confirmed connected to start can explore
   const queue: { address: string; depth: number }[] = [{ address: startAddress, depth: 0 }];
   let walletCount = 0;
   let reachedTarget = false;
@@ -262,6 +263,13 @@ export async function trackMoneyFlow(
 
   while (queue.length > 0 && walletCount < maxNodes) {
     const { address, depth } = queue.shift()!;
+    
+    // CRITICAL: Only explore wallets that are confirmed connected to the starting wallet
+    if (!connectedWallets.has(address)) {
+      console.warn(`Skipping wallet ${address.slice(0, 8)}... - not confirmed connected to start wallet`);
+      continue;
+    }
+    
     walletCount++;
 
     // Send progress update
@@ -308,6 +316,9 @@ export async function trackMoneyFlow(
       
       for (const transfer of transfers) {
         if (!allTransfers.find(t => t.signature === transfer.signature)) {
+          // Log every transfer as soon as it's discovered
+          console.log(`[DISCOVERED] Transfer from ${transfer.from.slice(0, 8)}... to ${transfer.to.slice(0, 8)}... (depth ${depth})`);
+          
           // Add branch count to the transfer
           transfer.branchCount = branchCount;
           
@@ -345,6 +356,9 @@ export async function trackMoneyFlow(
           // Only add to queue if not visited and not at target
           if (!visited.has(transfer.to)) {
             visited.add(transfer.to);
+            // CRITICAL: Only add to connectedWallets and queue if the sender is confirmed connected
+            // This guarantees every wallet we explore is reachable from the starting wallet
+            connectedWallets.add(transfer.to);
             // Don't recurse from target wallet/exchange
             if (!reachedTarget || transfer.to !== targetWallet) {
               queue.push({ address: transfer.to, depth: depth + 1 });
