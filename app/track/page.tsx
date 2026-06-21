@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Search, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import MoneyFlowGraph from '@/components/MoneyFlowGraph';
 import { Transfer } from '@/lib/helius';
 import { formatAddress } from '@/lib/utils';
+import { buildTransferTree, EnrichedTransfer } from '@/lib/buildTransferTree';
 
 export default function TrackPage() {
   const [walletAddress, setWalletAddress] = useState('');
@@ -20,6 +21,58 @@ export default function TrackPage() {
   const [reachedTarget, setReachedTarget] = useState(false);
   const [targetWallet, setTargetWallet] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Use the shared tree structure to get enriched transfers with depth
+  const enrichedTransfers = useMemo<EnrichedTransfer[]>(() => {
+    if (transfers.length === 0 || !walletAddress) return [];
+    const result = buildTransferTree(transfers, walletAddress);
+    return result.enrichedTransfers;
+  }, [transfers, walletAddress]);
+
+  // Sort transfers by depth, then by parent wallet for grouping
+  const sortedTransfers = useMemo<EnrichedTransfer[]>(() => {
+    return [...enrichedTransfers].sort((a, b) => {
+      // Primary sort: by depth
+      if (a.depth !== b.depth) {
+        return a.depth - b.depth;
+      }
+      // Secondary sort: by parent wallet (from address) to group branches together
+      if (a.from !== b.from) {
+        return a.from.localeCompare(b.from);
+      }
+      // Tertiary sort: by timestamp
+      return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+    });
+  }, [enrichedTransfers]);
+
+  // Helper function to get border color based on depth
+  const getDepthBorderColor = (depth: number): string => {
+    const colors = [
+      '#2DD4BF', // Depth 1 - Teal
+      '#60A5FA', // Depth 2 - Blue
+      '#A78BFA', // Depth 3 - Purple
+      '#F472B6', // Depth 4 - Pink
+      '#FB923C', // Depth 5 - Orange
+    ];
+    return colors[(depth - 1) % colors.length];
+  };
+
+  // Verify consistency between graph and table
+  useEffect(() => {
+    if (sortedTransfers.length > 0) {
+      const depthCounts = new Map<number, number>();
+      for (const transfer of sortedTransfers) {
+        depthCounts.set(transfer.depth, (depthCounts.get(transfer.depth) || 0) + 1);
+      }
+      
+      console.log('=== Table Depth Distribution (for verification) ===');
+      for (const [depth, count] of Array.from(depthCounts.entries()).sort((a, b) => a[0] - b[0])) {
+        console.log(`Depth ${depth}: ${count} transfers`);
+      }
+      console.log('Total transfers in table:', sortedTransfers.length);
+      console.log('This should match the graph depth distribution logged above.');
+    }
+  }, [sortedTransfers]);
 
   // Load tracking defaults from localStorage on mount
   useEffect(() => {
@@ -366,6 +419,9 @@ export default function TrackPage() {
                 <thead>
                   <tr className='border-b' style={{ borderColor: 'var(--border)' }}>
                     <th className='text-left py-3 px-4 font-semibold font-mono text-sm' style={{ color: 'var(--foreground)' }}>
+                      Hop
+                    </th>
+                    <th className='text-left py-3 px-4 font-semibold font-mono text-sm' style={{ color: 'var(--foreground)' }}>
                       From
                     </th>
                     <th className='text-left py-3 px-4 font-semibold font-mono text-sm' style={{ color: 'var(--foreground)' }}>
@@ -386,15 +442,19 @@ export default function TrackPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {transfers.map((transfer, index) => (
+                  {sortedTransfers.map((transfer, index) => (
                     <tr
                       key={transfer.signature}
                       className='border-b hover:opacity-80 transition-opacity'
                       style={{ 
                         borderColor: 'var(--border)',
-                        backgroundColor: index % 2 === 0 ? 'var(--surface)' : '#11141A'
+                        backgroundColor: index % 2 === 0 ? 'var(--surface)' : '#11141A',
+                        borderLeft: `3px solid ${getDepthBorderColor(transfer.depth)}`,
                       }}
                     >
+                      <td className='py-3 px-4 font-mono text-sm font-bold' style={{ color: 'var(--accent)' }}>
+                        {transfer.depth}
+                      </td>
                       <td className='py-3 px-4 font-mono text-sm' style={{ color: 'var(--foreground)' }}>
                         {formatAddress(transfer.from)}
                       </td>
