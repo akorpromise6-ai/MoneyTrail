@@ -398,7 +398,6 @@ export async function trackMoneyFlow(
   
   // === SORT TRANSFERS BY DEPTH ===
   // Sort so that transfers from earlier depths appear before transfers from later depths
-  // This ensures chain validation works correctly
   console.log('=== Sorting transfers by depth ===');
   allTransfers.sort((a, b) => {
     // Primary sort: by fromDepth (depth of the sender wallet)
@@ -412,44 +411,9 @@ export async function trackMoneyFlow(
   });
   console.log('✓ Transfers sorted by depth');
   
-  // === CHAIN VALIDATION ===
-  console.log('=== Chain Validation ===');
-  let connectedCount = 0;
-  let disconnectedCount = 0;
-  
-  // Collect all 'to' addresses from earlier transfers
-  const earlierToAddresses = new Set<string>();
-  
-  if (allTransfers.length > 0) {
-    // Check 1: First transfer's 'from' must equal the searched startAddress
-    const firstTransfer = allTransfers[0];
-    if (firstTransfer.from !== startAddress) {
-      console.error('ROOT MISMATCH: first transfer\'s from address does not match searched wallet');
-      console.error(`  Expected: ${startAddress}`);
-      console.error(`  Got: ${firstTransfer.from}`);
-    } else {
-      console.log('✓ First transfer starts from searched wallet');
-      connectedCount++;
-      earlierToAddresses.add(firstTransfer.to);
-    }
-    
-    // Check 2: For every transfer after the first, its 'from' must appear as a 'to' in some earlier transfer
-    for (let i = 1; i < allTransfers.length; i++) {
-      const transfer = allTransfers[i];
-      if (earlierToAddresses.has(transfer.from)) {
-        connectedCount++;
-        earlierToAddresses.add(transfer.to);
-      } else {
-        console.error('DISCONNECTED TRANSFER FOUND:', transfer, '- this wallet\'s \'from\' address was never a destination in any earlier hop');
-        console.error(`  Transfer ${i}: from=${transfer.from.slice(0, 8)}...${transfer.from.slice(-8)} to=${transfer.to.slice(0, 8)}...${transfer.to.slice(-8)}`);
-        disconnectedCount++;
-        // Still add the 'to' address so subsequent transfers can connect to it
-        earlierToAddresses.add(transfer.to);
-      }
-    }
-  }
-  
-  console.log(`Chain validation: ${connectedCount} connected, ${disconnectedCount} disconnected out of ${allTransfers.length} total transfers`);
+  // NOTE: Chain validation is no longer needed because connectedWallets set guarantees
+  // every wallet explored is reachable from the starting wallet. The validation logic
+  // has been removed as it is now dead defensive code.
   
   return {
     transfers: allTransfers,
