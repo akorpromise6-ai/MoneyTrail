@@ -202,6 +202,8 @@ export async function getTransfers(address: string, minAmount: number): Promise<
         const postBalances = tx.meta.postBalances;
         const accountKeys = tx.transaction.message.accountKeys;
         const instructions = tx.transaction.message.instructions;
+        const preTokenBalances = tx.meta.preTokenBalances;
+        const postTokenBalances = tx.meta.postTokenBalances;
 
         // Improved transfer extraction: handle multiple recipients and validate amounts
         const senders: Array<{ address: string; amount: number }> = [];
@@ -209,18 +211,74 @@ export async function getTransfers(address: string, minAmount: number): Promise<
         let totalSent = 0;
         let totalReceived = 0;
 
-        // Identify senders and recipients
+        // Identify senders and recipients from SOL balance changes
+        console.log(`  Checking ${accountKeys.length} accounts for balance changes (minAmount: ${minAmount})`);
         for (let i = 0; i < accountKeys.length; i++) {
           const balanceChange = (postBalances[i] - preBalances[i]) / 1e9;
           const address = accountKeys[i];
           const addressString = typeof address === 'string' ? address : address.pubkey;
 
+          if (Math.abs(balanceChange) > 0.001) {
+            console.log(`  Account ${i}: ${addressString.slice(0, 8)}... balance change: ${balanceChange.toFixed(6)} SOL`);
+          }
+
           if (balanceChange < -minAmount) {
             senders.push({ address: addressString, amount: Math.abs(balanceChange) });
             totalSent += Math.abs(balanceChange);
+            console.log(`  -> Added as SENDER: ${addressString.slice(0, 8)}... amount=${Math.abs(balanceChange).toFixed(2)} SOL`);
           } else if (balanceChange > 0) {
             recipients.push({ address: addressString, amount: balanceChange });
             totalReceived += balanceChange;
+            console.log(`  -> Added as RECIPIENT: ${addressString.slice(0, 8)}... amount=${balanceChange.toFixed(2)} SOL`);
+          }
+        }
+
+        console.log(`  Summary: ${senders.length} senders (total ${totalSent.toFixed(2)} SOL), ${recipients.length} recipients (total ${totalReceived.toFixed(2)} SOL)`);
+
+        // Also check for SPL token transfers if token balance data is available
+        if (preTokenBalances && postTokenBalances) {
+          console.log(`  Token balances available: ${preTokenBalances.length} token accounts`);
+          
+          // Map token account owners to their balance changes
+          const tokenOwnerChanges = new Map<string, number>();
+          
+          for (let i = 0; i < preTokenBalances.length; i++) {
+            const preToken = preTokenBalances[i];
+            const postToken = postTokenBalances[i];
+            
+            if (!preToken || !postToken) continue;
+            
+            const preAmount = parseFloat(preToken.uiTokenAmount?.amount || '0');
+            const postAmount = parseFloat(postToken.uiTokenAmount?.amount || '0');
+            const tokenChange = postAmount - preAmount;
+            const mint = preToken.mint;
+            const owner = preToken.owner;
+            
+            // Only process native SOL mint or skip for now
+            // Native SOL has mint: "So11111111111111111111111111111111111111112"
+            if (mint === 'So11111111111111111111111111111111111111112') {
+              // This is wrapped SOL, treat like SOL
+              if (Math.abs(tokenChange) > 0) {
+                const currentChange = tokenOwnerChanges.get(owner) || 0;
+                tokenOwnerChanges.set(owner, currentChange + tokenChange);
+                console.log(`  Wrapped SOL: owner=${owner.slice(0, 8)}..., change=${tokenChange}`);
+              }
+            } else if (Math.abs(tokenChange) > 0) {
+              console.log(`  Token: mint=${mint.slice(0, 8)}..., owner=${owner.slice(0, 8)}..., change=${tokenChange} (skipping non-SOL token)`);
+            }
+          }
+          
+          // Add token balance changes to senders/recipients
+          for (const [owner, change] of tokenOwnerChanges.entries()) {
+            if (change < -minAmount) {
+              senders.push({ address: owner, amount: Math.abs(change) });
+              totalSent += Math.abs(change);
+              console.log(`  Added sender from token: ${owner.slice(0, 8)}..., amount=${Math.abs(change)}`);
+            } else if (change > minAmount) {
+              recipients.push({ address: owner, amount: change });
+              totalReceived += change;
+              console.log(`  Added recipient from token: ${owner.slice(0, 8)}..., amount=${change}`);
+            }
           }
         }
 
