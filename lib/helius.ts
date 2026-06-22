@@ -412,15 +412,21 @@ export async function trackMoneyFlow(
     try {
       const transfers = await getTransfers(address, minAmount);
       
+      console.log(`  getTransfers returned ${transfers.length} transfers for ${address.slice(0, 8)}...`);
+      
       // Filter transfers based on direction - include transfers where wallet is involved
       const relevantTransfers = direction === 'outgoing' 
         ? transfers.filter(t => t.from === address)
         : transfers.filter(t => t.to === address);
       
+      console.log(`  After direction filter (${direction}): ${relevantTransfers.length} transfers`);
+      
       // Auto-detect direction if no transfers found for selected direction
       if (relevantTransfers.length === 0 && transfers.length > 0) {
         const hasOutgoing = transfers.some(t => t.from === address);
         const hasIncoming = transfers.some(t => t.to === address);
+        
+        console.log(`  Direction mismatch: hasOutgoing=${hasOutgoing}, hasIncoming=${hasIncoming}`);
         
         if (direction === 'outgoing' && hasIncoming) {
           console.log(`Auto-switching to incoming trace: wallet has ${transfers.length} transfers but none as sender`);
@@ -478,6 +484,7 @@ export async function trackMoneyFlow(
       }
       
       if (relevantTransfers.length === 0) {
+        console.log(`  No relevant transfers found, skipping wallet ${address.slice(0, 8)}...`);
         continue;
       }
       
