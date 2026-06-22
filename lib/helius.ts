@@ -200,55 +200,80 @@ export async function getTransfers(address: string, minAmount: number): Promise<
         const preBalances = tx.meta.preBalances;
         const postBalances = tx.meta.postBalances;
         const accountKeys = tx.transaction.message.accountKeys;
+        const instructions = tx.transaction.message.instructions;
 
+        // Improved transfer extraction: handle multiple recipients and validate amounts
+        const senders: Array<{ address: string; amount: number }> = [];
+        const recipients: Array<{ address: string; amount: number }> = [];
+        let totalSent = 0;
+        let totalReceived = 0;
+
+        // Identify senders and recipients
         for (let i = 0; i < accountKeys.length; i++) {
           const balanceChange = (postBalances[i] - preBalances[i]) / 1e9;
-          
+          const address = accountKeys[i];
+          const addressString = typeof address === 'string' ? address : address.pubkey;
+
           if (balanceChange < -minAmount) {
-            const fromAddress = accountKeys[i];
-            const fromAddressString = typeof fromAddress === 'string' ? fromAddress : fromAddress.pubkey;
-            
-            for (let j = 0; j < accountKeys.length; j++) {
-              if (i !== j) {
-                const recipientChange = (postBalances[j] - preBalances[j]) / 1e9;
-                if (recipientChange > 0) {
-                  const toAddress = accountKeys[j];
-                  const toAddressString = typeof toAddress === 'string' ? toAddress : toAddress.pubkey;
-                  
-                  const transfer: Transfer = {
-                    signature: sig.signature,
-                    from: fromAddressString,
-                    to: toAddressString,
-                    amount: Math.abs(balanceChange),
-                    timestamp: new Date(tx.blockTime * 1000).toISOString(),
-                    slot: tx.slot,
-                  };
-                  
-                  // Check if recipient is an exchange wallet
-                  const exchange = getExchangeForAddress(toAddressString);
-                  if (exchange) {
-                    transfer.isExchange = true;
-                    transfer.exchangeName = exchange;
-                  }
-                  
-                  // Check if recipient is a DEX wallet
-                  const dex = getDexForAddress(toAddressString);
-                  if (dex) {
-                    transfer.isDex = true;
-                    transfer.dexName = dex;
-                  }
-                  
-                  // Check if recipient is a bridge wallet
-                  const bridge = getBridgeForAddress(toAddressString);
-                  if (bridge) {
-                    transfer.isBridge = true;
-                    transfer.bridgeName = bridge;
-                  }
-                  
-                  transfers.push(transfer);
-                  break;
-                }
+            senders.push({ address: addressString, amount: Math.abs(balanceChange) });
+            totalSent += Math.abs(balanceChange);
+          } else if (balanceChange > 0) {
+            recipients.push({ address: addressString, amount: balanceChange });
+            totalReceived += balanceChange;
+          }
+        }
+
+        // Validate that total sent matches total received (within small tolerance for fees)
+        const tolerance = 0.000001; // Small tolerance for rounding errors
+        if (Math.abs(totalSent - totalReceived) > tolerance && senders.length > 0 && recipients.length > 0) {
+          console.warn(`Transaction ${sig.signature.slice(0, 8)}... has mismatched amounts: sent ${totalSent.toFixed(6)}, received ${totalReceived.toFixed(6)}`);
+        }
+
+        // Create transfers for each sender-recipient pair
+        for (const sender of senders) {
+          for (const recipient of recipients) {
+            // Skip if sender is also recipient (self-transfer)
+            if (sender.address === recipient.address) continue;
+
+            // Calculate proportional amount if multiple recipients
+            let transferAmount = sender.amount;
+            if (recipients.length > 1) {
+              transferAmount = (sender.amount * recipient.amount) / totalReceived;
+            }
+
+            // Only include if amount meets minimum threshold
+            if (transferAmount >= minAmount) {
+              const transfer: Transfer = {
+                signature: sig.signature,
+                from: sender.address,
+                to: recipient.address,
+                amount: transferAmount,
+                timestamp: new Date(tx.blockTime * 1000).toISOString(),
+                slot: tx.slot,
+              };
+
+              // Check if recipient is an exchange wallet
+              const exchange = getExchangeForAddress(recipient.address);
+              if (exchange) {
+                transfer.isExchange = true;
+                transfer.exchangeName = exchange;
               }
+
+              // Check if recipient is a DEX wallet
+              const dex = getDexForAddress(recipient.address);
+              if (dex) {
+                transfer.isDex = true;
+                transfer.dexName = dex;
+              }
+
+              // Check if recipient is a bridge wallet
+              const bridge = getBridgeForAddress(recipient.address);
+              if (bridge) {
+                transfer.isBridge = true;
+                transfer.bridgeName = bridge;
+              }
+
+              transfers.push(transfer);
             }
           }
         }

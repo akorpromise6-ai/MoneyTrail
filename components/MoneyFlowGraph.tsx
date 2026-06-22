@@ -22,6 +22,20 @@ interface MoneyFlowGraphProps {
 }
 
 const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({ transfers, startAddress: providedStartAddress }) => {
+  const [collapsedNodes, setCollapsedNodes] = React.useState<Set<string>>(new Set());
+  
+  const toggleNodeCollapse = (nodeId: string) => {
+    setCollapsedNodes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(nodeId)) {
+        newSet.delete(nodeId);
+      } else {
+        newSet.add(nodeId);
+      }
+      return newSet;
+    });
+  };
+
   const { nodes: initialNodes, edges: initialEdges } = useMemo<{ nodes: Node[]; edges: Edge[] }>(() => {
     try {
       if (transfers.length === 0 || !providedStartAddress) {
@@ -125,6 +139,22 @@ const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({ transfers, startAddress
                   {isMergePointNode && (
                     <div className="text-xs font-bold mt-1" style={{ color: '#c9a63d' }}>⚡ Merge Point</div>
                   )}
+                  {depth > 0 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleNodeCollapse(address);
+                      }}
+                      className="mt-1 text-xs px-2 py-1 rounded"
+                      style={{ 
+                        backgroundColor: 'var(--surface)', 
+                        border: '1px solid var(--border)',
+                        color: 'var(--foreground)'
+                      }}
+                    >
+                      {collapsedNodes.has(address) ? '+' : '-'}
+                    </button>
+                  )}
                 </div>
               ),
             },
@@ -223,24 +253,51 @@ const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({ transfers, startAddress
       // Create nodes array from nodeMap
       const nodes: Node[] = Array.from(nodeMap.values());
 
+      // Filter nodes based on collapsed state
+      const visibleNodes = nodes.filter(node => {
+        // Always show the starting node
+        if (node.id === providedStartAddress) return true;
+        
+        // Check if any parent is collapsed
+        const walletNode = walletNodes.get(node.id);
+        if (!walletNode) return true;
+        
+        // If any parent wallet is collapsed, hide this node
+        for (const parent of walletNode.parentWallets) {
+          if (collapsedNodes.has(parent)) {
+            return false;
+          }
+        }
+        
+        return true;
+      });
+
+      // Filter edges based on collapsed state
+      const visibleEdges = edges.filter(edge => {
+        // Hide edge if source or target is not visible
+        const sourceVisible = visibleNodes.some(n => n.id === edge.source);
+        const targetVisible = visibleNodes.some(n => n.id === edge.target);
+        return sourceVisible && targetVisible;
+      });
+
       // Verify depth 0 has exactly 1 node (the starting wallet)
-      const depth0Nodes = nodes.filter((n: Node) => walletNodes.get(n.id)?.depth === 0);
+      const depth0Nodes = visibleNodes.filter((n: Node) => walletNodes.get(n.id)?.depth === 0);
       if (depth0Nodes.length !== 1) {
         console.error(`ERROR: Depth 0 should have exactly 1 node (the root), but has ${depth0Nodes.length} nodes!`);
         console.error('Depth 0 nodes:', depth0Nodes.map((n: Node) => n.id));
       }
 
       console.log('=== Graph data built using tree structure ===');
-      console.log('Total nodes:', nodes.length);
-      console.log('Total edges:', edges.length);
+      console.log('Total nodes:', visibleNodes.length);
+      console.log('Total edges:', visibleEdges.length);
       console.log('Depth distribution:', Object.fromEntries(depthCounts));
 
-      return { nodes, edges };
+      return { nodes: visibleNodes, edges: visibleEdges };
     } catch (error) {
       console.error('Error building graph:', error);
       return { nodes: [], edges: [] };
     }
-  }, [transfers, providedStartAddress]);
+  }, [transfers, providedStartAddress, collapsedNodes]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
