@@ -236,13 +236,13 @@ export async function getTransfers(address: string, minAmount: number): Promise<
         console.log(`  Summary: ${senders.length} senders (total ${totalSent.toFixed(2)} SOL), ${recipients.length} recipients (total ${totalReceived.toFixed(2)} SOL)`);
 
         // Also check for SPL token transfers if token balance data is available
-        if (preTokenBalances && postTokenBalances) {
+        if (preTokenBalances && postTokenBalances && Array.isArray(preTokenBalances) && Array.isArray(postTokenBalances)) {
           console.log(`  Token balances available: ${preTokenBalances.length} token accounts`);
           
           // Map token account owners to their balance changes
           const tokenOwnerChanges = new Map<string, number>();
           
-          for (let i = 0; i < preTokenBalances.length; i++) {
+          for (let i = 0; i < Math.min(preTokenBalances.length, postTokenBalances.length); i++) {
             const preToken = preTokenBalances[i];
             const postToken = postTokenBalances[i];
             
@@ -253,6 +253,8 @@ export async function getTransfers(address: string, minAmount: number): Promise<
             const tokenChange = postAmount - preAmount;
             const mint = preToken.mint;
             const owner = preToken.owner;
+            
+            if (!owner || !mint) continue;
             
             // Only process native SOL mint or skip for now
             // Native SOL has mint: "So11111111111111111111111111111111111111112"
