@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { trackMoneyFlow, TrackingOptions } from '@/lib/helius';
+import { trackMoneyFlow, TrackingOptions, getTransactionDetails } from '@/lib/helius';
 import { generateMoneyFlowSummary } from '@/lib/anthropic';
 
 export const dynamic = 'force-dynamic';
@@ -35,11 +35,25 @@ export async function POST(request: NextRequest) {
         console.log('=== Starting money flow tracking request ===');
         
         // Parse request body
-        const { walletAddress, minAmount, endWalletAddress, exchangeTarget, maxDepth } = await request.json();
-        console.log('Request parsed:', { walletAddress, minAmount, endWalletAddress, exchangeTarget, maxDepth });
+        const { walletAddress, transactionHash, minAmount, endWalletAddress, exchangeTarget, maxDepth } = await request.json();
+        console.log('Request parsed:', { walletAddress, transactionHash, minAmount, endWalletAddress, exchangeTarget, maxDepth });
 
-        if (!walletAddress || !minAmount) {
-          sendEvent({ type: 'error', error: 'Wallet address and minimum amount are required' });
+        // Resolve transaction hash to wallet address if provided
+        let startAddress = walletAddress;
+        if (transactionHash && !walletAddress) {
+          console.log('Resolving transaction hash to wallet address...');
+          const txDetails = await getTransactionDetails(transactionHash);
+          if (!txDetails) {
+            sendEvent({ type: 'error', error: 'Failed to resolve transaction hash' });
+            closeStream();
+            return;
+          }
+          startAddress = txDetails.from;
+          console.log(`Resolved transaction hash to wallet: ${startAddress}`);
+        }
+
+        if (!startAddress || !minAmount) {
+          sendEvent({ type: 'error', error: 'Wallet address (or transaction hash) and minimum amount are required' });
           closeStream();
           return;
         }
@@ -59,7 +73,7 @@ export async function POST(request: NextRequest) {
           },
         };
 
-        const result = await trackMoneyFlow(walletAddress, parseFloat(minAmount), options);
+        const result = await trackMoneyFlow(startAddress, parseFloat(minAmount), options);
         console.log(`Money flow tracking completed. Found ${result.transfers.length} transfers`);
 
         // Generate AI summary

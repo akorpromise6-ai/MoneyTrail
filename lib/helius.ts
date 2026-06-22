@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { isExchangeWallet, getExchangeForAddress } from './exchanges';
+import { isExchangeWallet, getExchangeForAddress, getDexForAddress, getBridgeForAddress } from './exchanges';
 
 const HELIUS_API_URL = process.env.HELIUS_API_URL || 'https://mainnet.helius-rpc.com';
 const HELIUS_API_KEY = process.env.HELIUS_API_KEY;
@@ -10,44 +10,69 @@ const REQUEST_DELAY_MS = 300;
 const MAX_NODES = 50;
 const DEFAULT_MAX_DEPTH = 3;
 
-// DEX wallet addresses for entity labeling
-interface DexWallet {
-  address: string;
-  dex: string;
-}
-
-const DEX_WALLETS: DexWallet[] = [
-  // Jupiter
-  { address: 'Jup6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTgV6', dex: 'Jupiter' },
-  // Raydium
-  { address: '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zNt1CtD', dex: 'Raydium' },
-  // Orca
-  { address: 'whirLbMiicVdio4qvUfX5dJlZwzJ4f8dM2FpG9Sx3h', dex: 'Orca' },
-];
-
-// Bridge wallet addresses for entity labeling
-interface BridgeWallet {
-  address: string;
-  bridge: string;
-}
-
-const BRIDGE_WALLETS: BridgeWallet[] = [
-  // Wormhole
-  { address: 'wormDTUJ6WDpn2HzQ1t8Kg2c47tkq2g5kQ9YqXh1v', bridge: 'Wormhole' },
-];
-
-function getDexForAddress(address: string): string | null {
-  const wallet = DEX_WALLETS.find(w => w.address === address);
-  return wallet ? wallet.dex : null;
-}
-
-function getBridgeForAddress(address: string): string | null {
-  const wallet = BRIDGE_WALLETS.find(w => w.address === address);
-  return wallet ? wallet.bridge : null;
-}
-
 // Helper function to add delay between API calls
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Get transaction details by signature
+ * Used to resolve transaction hash to source wallet for starting traces
+ */
+export async function getTransactionDetails(signature: string): Promise<{ from: string; to: string; amount: number; timestamp: string } | null> {
+  try {
+    const response = await axios.post(HELIUS_API_URL, {
+      jsonrpc: '2.0',
+      id: 'getTransaction',
+      method: 'getTransaction',
+      params: [signature, { encoding: 'jsonParsed' }],
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const tx = response.data.result;
+    if (!tx || !tx.meta || !tx.transaction) {
+      return null;
+    }
+
+    const preBalances = tx.meta.preBalances;
+    const postBalances = tx.meta.postBalances;
+    const accountKeys = tx.transaction.message.accountKeys;
+
+    // Find the sender (account with negative balance change)
+    for (let i = 0; i < accountKeys.length; i++) {
+      const balanceChange = (postBalances[i] - preBalances[i]) / 1e9;
+      
+      if (balanceChange < 0) {
+        const fromAddress = accountKeys[i];
+        const fromAddressString = typeof fromAddress === 'string' ? fromAddress : fromAddress.pubkey;
+        
+        // Find the recipient (account with positive balance change)
+        for (let j = 0; j < accountKeys.length; j++) {
+          if (i !== j) {
+            const recipientChange = (postBalances[j] - preBalances[j]) / 1e9;
+            if (recipientChange > 0) {
+              const toAddress = accountKeys[j];
+              const toAddressString = typeof toAddress === 'string' ? toAddress : toAddress.pubkey;
+              
+              return {
+                from: fromAddressString,
+                to: toAddressString,
+                amount: Math.abs(balanceChange),
+                timestamp: new Date(tx.blockTime * 1000).toISOString(),
+              };
+            }
+          }
+        }
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching transaction details:', error);
+    return null;
+  }
+}
 
 export interface Transfer {
   signature: string;

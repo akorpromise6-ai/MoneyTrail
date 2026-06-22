@@ -9,6 +9,7 @@ import { buildTransferTree, EnrichedTransfer } from '@/lib/buildTransferTree';
 
 export default function TrackPage() {
   const [walletAddress, setWalletAddress] = useState('');
+  const [transactionHash, setTransactionHash] = useState('');
   const [minAmount, setMinAmount] = useState('1');
   const [endWalletAddress, setEndWalletAddress] = useState('');
   const [exchangeTarget, setExchangeTarget] = useState('');
@@ -99,8 +100,12 @@ export default function TrackPage() {
   }, []);
 
   const handleTrack = async () => {
-    if (!walletAddress || !minAmount) {
-      setError('Please enter both wallet address and minimum amount');
+    if (!walletAddress && !transactionHash) {
+      setError('Please enter either wallet address or transaction hash');
+      return;
+    }
+    if (!minAmount) {
+      setError('Please enter minimum amount');
       return;
     }
 
@@ -122,7 +127,8 @@ export default function TrackPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          walletAddress,
+          walletAddress: walletAddress || undefined,
+          transactionHash: transactionHash || undefined,
           minAmount,
           endWalletAddress: endWalletAddress || undefined,
           exchangeTarget: exchangeTarget || undefined,
@@ -226,9 +232,32 @@ export default function TrackPage() {
               value={walletAddress}
               onChange={(e) => setWalletAddress(e.target.value)}
               placeholder="Enter Solana wallet address"
+              disabled={!!transactionHash}
               className='w-full px-4 py-2 rounded font-mono text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all'
               style={{ 
-                backgroundColor: 'var(--background)', 
+                backgroundColor: transactionHash ? 'var(--muted)' : 'var(--background)', 
+                border: '1px solid var(--border)', 
+                color: 'var(--foreground)',
+                '--tw-ring-color': 'var(--accent)'
+              } as React.CSSProperties}
+            />
+          </div>
+          <div>
+            <label className='block text-sm font-medium mb-2 font-mono' style={{ color: 'var(--foreground)' }}>
+              Transaction Hash (optional)
+            </label>
+            <input
+              type="text"
+              value={transactionHash}
+              onChange={(e) => {
+                setTransactionHash(e.target.value);
+                if (e.target.value) setWalletAddress('');
+              }}
+              placeholder="Enter transaction signature"
+              disabled={!!walletAddress}
+              className='w-full px-4 py-2 rounded font-mono text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all'
+              style={{ 
+                backgroundColor: walletAddress ? 'var(--muted)' : 'var(--background)', 
                 border: '1px solid var(--border)', 
                 color: 'var(--foreground)',
                 '--tw-ring-color': 'var(--accent)'
