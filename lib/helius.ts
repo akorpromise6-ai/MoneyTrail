@@ -539,29 +539,62 @@ export async function trackMoneyFlow(
   console.log('=== Chain Validation and Filtering ===');
   const connectedTransfers: Transfer[] = [];
   const earlierToAddresses = new Set<string>();
+  const earlierFromAddresses = new Set<string>();
   
   if (allTransfers.length > 0) {
-    // Check 1: First transfer's 'from' must equal the searched startAddress
+    // Check 1: First transfer must involve the searched wallet (either as sender or receiver)
     const firstTransfer = allTransfers[0];
-    if (firstTransfer.from !== startAddress) {
-      console.error('ROOT MISMATCH: first transfer\'s from address does not match searched wallet');
-      console.error(`  Expected: ${startAddress}`);
-      console.error(`  Got: ${firstTransfer.from}`);
-    } else {
-      console.log('✓ First transfer starts from searched wallet');
-      connectedTransfers.push(firstTransfer);
-      earlierToAddresses.add(firstTransfer.to);
+    const isOutgoing = firstTransfer.from === startAddress;
+    const isIncoming = firstTransfer.to === startAddress;
+    
+    // Auto-detect direction if not explicitly set
+    let actualDirection = direction;
+    if (!isOutgoing && isIncoming) {
+      actualDirection = 'incoming';
+      console.log('Auto-detected incoming trace based on first transfer');
+    } else if (isOutgoing && !isIncoming) {
+      actualDirection = 'outgoing';
+      console.log('Auto-detected outgoing trace based on first transfer');
     }
     
-    // Check 2: For every transfer after the first, its 'from' must appear as a 'to' in some earlier transfer
+    if (!isOutgoing && !isIncoming) {
+      console.error('ROOT MISMATCH: first transfer does not involve the searched wallet');
+      console.error(`  Expected: ${startAddress} as either from or to`);
+      console.error(`  Got: from=${firstTransfer.from.slice(0, 8)}... to=${firstTransfer.to.slice(0, 8)}...`);
+    } else {
+      if (actualDirection === 'outgoing') {
+        console.log('✓ First transfer starts from searched wallet (outgoing trace)');
+        connectedTransfers.push(firstTransfer);
+        earlierToAddresses.add(firstTransfer.to);
+      } else {
+        console.log('✓ First transfer ends at searched wallet (incoming trace)');
+        connectedTransfers.push(firstTransfer);
+        earlierFromAddresses.add(firstTransfer.from);
+      }
+    }
+    
+    // Check 2: For every transfer after the first, validate chain connectivity
     for (let i = 1; i < allTransfers.length; i++) {
       const transfer = allTransfers[i];
-      if (earlierToAddresses.has(transfer.from)) {
-        connectedTransfers.push(transfer);
-        earlierToAddresses.add(transfer.to);
+      
+      if (actualDirection === 'outgoing') {
+        // Outgoing trace: each transfer's 'from' must appear as a 'to' in earlier transfers
+        if (earlierToAddresses.has(transfer.from)) {
+          connectedTransfers.push(transfer);
+          earlierToAddresses.add(transfer.to);
+        } else {
+          console.warn('DISCONNECTED TRANSFER FILTERED OUT:', transfer, '- this wallet\'s \'from\' address was never a destination in any earlier hop');
+          console.warn(`  Transfer ${i}: from=${transfer.from.slice(0, 8)}...${transfer.from.slice(-8)} to=${transfer.to.slice(0, 8)}...${transfer.to.slice(-8)}`);
+        }
       } else {
-        console.warn('DISCONNECTED TRANSFER FILTERED OUT:', transfer, '- this wallet\'s \'from\' address was never a destination in any earlier hop');
-        console.warn(`  Transfer ${i}: from=${transfer.from.slice(0, 8)}...${transfer.from.slice(-8)} to=${transfer.to.slice(0, 8)}...${transfer.to.slice(-8)}`);
+        // Incoming trace: each transfer's 'to' must appear as a 'from' in earlier transfers
+        if (earlierFromAddresses.has(transfer.to)) {
+          connectedTransfers.push(transfer);
+          earlierFromAddresses.add(transfer.from);
+        } else {
+          console.warn('DISCONNECTED TRANSFER FILTERED OUT:', transfer, '- this wallet\'s \'to\' address was never a source in any earlier hop');
+          console.warn(`  Transfer ${i}: from=${transfer.from.slice(0, 8)}...${transfer.from.slice(-8)} to=${transfer.to.slice(0, 8)}...${transfer.to.slice(-8)}`);
+        }
       }
     }
   }
