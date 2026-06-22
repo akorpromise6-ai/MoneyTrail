@@ -98,6 +98,7 @@ export interface TrackingOptions {
   endWalletAddress?: string;
   exchangeTarget?: string;
   maxDepth?: number;
+  direction?: 'outgoing' | 'incoming';
   onProgress?: (progress: ProgressUpdate) => void;
   onTransferFound?: (transfer: Transfer) => void;
 }
@@ -298,7 +299,7 @@ export async function trackMoneyFlow(
   minAmount: number, 
   options: TrackingOptions = {}
 ): Promise<TrackingResult> {
-  const { endWalletAddress, exchangeTarget, maxDepth = DEFAULT_MAX_DEPTH, onProgress, onTransferFound } = options;
+  const { endWalletAddress, exchangeTarget, maxDepth = DEFAULT_MAX_DEPTH, direction = 'outgoing', onProgress, onTransferFound } = options;
   
   const allTransfers: Transfer[] = [];
   const visited = new Set<string>();
@@ -351,12 +352,24 @@ export async function trackMoneyFlow(
     try {
       const transfers = await getTransfers(address, minAmount);
       
+      // Filter transfers based on direction
+      const relevantTransfers = direction === 'outgoing' 
+        ? transfers.filter(t => t.from === address)
+        : transfers.filter(t => t.to === address);
       
-      // Branch tracking: count how many unique destinations this wallet sends to
-      const uniqueDestinations = new Set(transfers.map(t => t.to));
-      const branchCount = uniqueDestinations.size;
+      if (relevantTransfers.length === 0) {
+        continue;
+      }
       
-      for (const transfer of transfers) {
+      // Branch tracking: count how many unique destinations/sources this wallet sends to/receives from
+      const uniqueCounterparts = new Set(
+        direction === 'outgoing'
+          ? relevantTransfers.map(t => t.to)
+          : relevantTransfers.map(t => t.from)
+      );
+      const branchCount = uniqueCounterparts.size;
+      
+      for (const transfer of relevantTransfers) {
         if (!allTransfers.find(t => t.signature === transfer.signature)) {
           // Log every transfer as soon as it's discovered
           console.log(`[DISCOVERED] Transfer from ${transfer.from.slice(0, 8)}... to ${transfer.to.slice(0, 8)}... (depth ${depth})`);
@@ -368,11 +381,22 @@ export async function trackMoneyFlow(
           transfer.fromDepth = depth;
           transfer.toDepth = depth + 1;
           
-          // Cycle detection: check if destination was already visited
-          if (visited.has(transfer.to)) {
+          // For incoming traces, reverse the depth logic
+          if (direction === 'incoming') {
+            transfer.fromDepth = depth + 1;
+            transfer.toDepth = depth;
+          }
+          
+          // Cycle detection: check if the counterpart was already visited
+          const counterpart = direction === 'outgoing' ? transfer.to : transfer.from;
+          if (visited.has(counterpart)) {
             transfer.isCycle = true;
-            transfer.toDepth = depth; // Cycles go back to same or earlier depth
-            console.log(`Cycle detected: ${address.slice(0, 8)}... -> ${transfer.to.slice(0, 8)}... (already visited)`);
+            if (direction === 'outgoing') {
+              transfer.toDepth = depth; // Cycles go back to same or earlier depth
+            } else {
+              transfer.fromDepth = depth; // Cycles go back to same or earlier depth
+            }
+            console.log(`Cycle detected: ${address.slice(0, 8)}... -> ${counterpart.slice(0, 8)}... (already visited)`);
           }
           
           allTransfers.push(transfer);
@@ -383,24 +407,24 @@ export async function trackMoneyFlow(
           }
           
           // Check if this transfer reaches the target
-          if (endWalletAddress && transfer.to === endWalletAddress) {
-            console.log(`Transfer reaches target wallet: ${transfer.to}`);
+          if (endWalletAddress && counterpart === endWalletAddress) {
+            console.log(`Transfer reaches target wallet: ${counterpart}`);
             reachedTarget = true;
-            targetWallet = transfer.to;
+            targetWallet = counterpart;
           }
           
-          if (exchangeTarget && isExchangeWallet(transfer.to, exchangeTarget)) {
+          if (exchangeTarget && isExchangeWallet(counterpart, exchangeTarget)) {
             console.log(`Transfer reaches target exchange: ${exchangeTarget}`);
             reachedTarget = true;
-            targetWallet = transfer.to;
+            targetWallet = counterpart;
           }
           
           // Only add to queue if not visited and not at target
-          if (!visited.has(transfer.to)) {
-            visited.add(transfer.to);
+          if (!visited.has(counterpart)) {
+            visited.add(counterpart);
             // Don't recurse from target wallet/exchange
-            if (!reachedTarget || transfer.to !== targetWallet) {
-              queue.push({ address: transfer.to, depth: depth + 1 });
+            if (!reachedTarget || counterpart !== targetWallet) {
+              queue.push({ address: counterpart, depth: depth + 1 });
             }
           }
         }

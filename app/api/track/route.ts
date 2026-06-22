@@ -35,8 +35,8 @@ export async function POST(request: NextRequest) {
         console.log('=== Starting money flow tracking request ===');
         
         // Parse request body
-        const { walletAddress, transactionHash, minAmount, endWalletAddress, exchangeTarget, maxDepth } = await request.json();
-        console.log('Request parsed:', { walletAddress, transactionHash, minAmount, endWalletAddress, exchangeTarget, maxDepth });
+        const { walletAddress, transactionHash, minAmount, endWalletAddress, exchangeTarget, maxDepth, direction } = await request.json();
+        console.log('Request parsed:', { walletAddress, transactionHash, minAmount, endWalletAddress, exchangeTarget, maxDepth, direction });
 
         // Resolve transaction hash to wallet address if provided
         let startAddress = walletAddress;
@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
           endWalletAddress,
           exchangeTarget,
           maxDepth: maxDepth ? parseInt(maxDepth) : 5,
+          direction: direction || 'outgoing',
           onProgress: (progress) => {
             sendEvent({ type: 'progress', ...progress });
           },

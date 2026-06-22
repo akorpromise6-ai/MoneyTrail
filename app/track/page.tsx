@@ -14,6 +14,7 @@ export default function TrackPage() {
   const [endWalletAddress, setEndWalletAddress] = useState('');
   const [exchangeTarget, setExchangeTarget] = useState('');
   const [maxDepth, setMaxDepth] = useState('');
+  const [direction, setDirection] = useState<'outgoing' | 'incoming'>('outgoing');
   const [loading, setLoading] = useState(false);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [summary, setSummary] = useState('');
@@ -133,6 +134,7 @@ export default function TrackPage() {
           endWalletAddress: endWalletAddress || undefined,
           exchangeTarget: exchangeTarget || undefined,
           maxDepth: maxDepth || undefined,
+          direction,
         }),
       });
 
@@ -283,6 +285,25 @@ export default function TrackPage() {
                 '--tw-ring-color': 'var(--accent)'
               } as React.CSSProperties}
             />
+          </div>
+          <div>
+            <label className='block text-sm font-medium mb-2 font-mono' style={{ color: 'var(--foreground)' }}>
+              Direction
+            </label>
+            <select
+              value={direction}
+              onChange={(e) => setDirection(e.target.value as 'outgoing' | 'incoming')}
+              className='w-full px-4 py-2 rounded font-mono text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all'
+              style={{ 
+                backgroundColor: 'var(--background)', 
+                border: '1px solid var(--border)', 
+                color: 'var(--foreground)',
+                '--tw-ring-color': 'var(--accent)'
+              } as React.CSSProperties}
+            >
+              <option value="outgoing">Outgoing (from wallet)</option>
+              <option value="incoming">Incoming (to wallet)</option>
+            </select>
           </div>
         </div>
 
