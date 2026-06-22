@@ -412,10 +412,70 @@ export async function trackMoneyFlow(
     try {
       const transfers = await getTransfers(address, minAmount);
       
-      // Filter transfers based on direction
+      // Filter transfers based on direction - include transfers where wallet is involved
       const relevantTransfers = direction === 'outgoing' 
         ? transfers.filter(t => t.from === address)
         : transfers.filter(t => t.to === address);
+      
+      // Auto-detect direction if no transfers found for selected direction
+      if (relevantTransfers.length === 0 && transfers.length > 0) {
+        const hasOutgoing = transfers.some(t => t.from === address);
+        const hasIncoming = transfers.some(t => t.to === address);
+        
+        if (direction === 'outgoing' && hasIncoming) {
+          console.log(`Auto-switching to incoming trace: wallet has ${transfers.length} transfers but none as sender`);
+          // Re-filter for incoming
+          const incomingTransfers = transfers.filter(t => t.to === address);
+          if (incomingTransfers.length > 0) {
+            // Process incoming transfers instead
+            const uniqueCounterparts = new Set(incomingTransfers.map(t => t.from));
+            const branchCount = uniqueCounterparts.size;
+            
+            for (const transfer of incomingTransfers) {
+              if (!allTransfers.find(t => t.signature === transfer.signature)) {
+                console.log(`[DISCOVERED] Transfer from ${transfer.from.slice(0, 8)}... to ${transfer.to.slice(0, 8)}... (depth ${depth})`);
+                transfer.branchCount = branchCount;
+                transfer.fromDepth = depth + 1;
+                transfer.toDepth = depth;
+                allTransfers.push(transfer);
+                
+                const counterpart = transfer.from;
+                if (!visited.has(counterpart)) {
+                  visited.add(counterpart);
+                  queue.push({ address: counterpart, depth: depth + 1 });
+                }
+              }
+            }
+          }
+          continue;
+        } else if (direction === 'incoming' && hasOutgoing) {
+          console.log(`Auto-switching to outgoing trace: wallet has ${transfers.length} transfers but none as receiver`);
+          // Re-filter for outgoing
+          const outgoingTransfers = transfers.filter(t => t.from === address);
+          if (outgoingTransfers.length > 0) {
+            // Process outgoing transfers instead
+            const uniqueCounterparts = new Set(outgoingTransfers.map(t => t.to));
+            const branchCount = uniqueCounterparts.size;
+            
+            for (const transfer of outgoingTransfers) {
+              if (!allTransfers.find(t => t.signature === transfer.signature)) {
+                console.log(`[DISCOVERED] Transfer from ${transfer.from.slice(0, 8)}... to ${transfer.to.slice(0, 8)}... (depth ${depth})`);
+                transfer.branchCount = branchCount;
+                transfer.fromDepth = depth;
+                transfer.toDepth = depth + 1;
+                allTransfers.push(transfer);
+                
+                const counterpart = transfer.to;
+                if (!visited.has(counterpart)) {
+                  visited.add(counterpart);
+                  queue.push({ address: counterpart, depth: depth + 1 });
+                }
+              }
+            }
+          }
+          continue;
+        }
+      }
       
       if (relevantTransfers.length === 0) {
         continue;
