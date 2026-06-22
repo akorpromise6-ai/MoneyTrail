@@ -251,8 +251,7 @@ export async function trackMoneyFlow(
   const { endWalletAddress, exchangeTarget, maxDepth = DEFAULT_MAX_DEPTH, onProgress, onTransferFound } = options;
   
   const allTransfers: Transfer[] = [];
-  const visited = new Set<string>(); // Prevents re-exploring the same wallet
-  const connectedWallets = new Set<string>([startAddress]); // Only wallets confirmed connected to start can explore
+  const visited = new Set<string>();
   const queue: { address: string; depth: number }[] = [{ address: startAddress, depth: 0 }];
   let walletCount = 0;
   let reachedTarget = false;
@@ -263,15 +262,6 @@ export async function trackMoneyFlow(
 
   while (queue.length > 0 && walletCount < maxNodes) {
     const { address, depth } = queue.shift()!;
-    
-    console.log(`[QUEUE POP] Exploring wallet ${address.slice(0, 8)}... at depth ${depth}, connectedWallets has ${connectedWallets.size} wallets`);
-    
-    // CRITICAL: Only explore wallets that are confirmed connected to the starting wallet
-    if (!connectedWallets.has(address)) {
-      console.warn(`Skipping wallet ${address.slice(0, 8)}... - not confirmed connected to start wallet`);
-      continue;
-    }
-    
     walletCount++;
 
     // Send progress update
@@ -358,10 +348,6 @@ export async function trackMoneyFlow(
           // Only add to queue if not visited and not at target
           if (!visited.has(transfer.to)) {
             visited.add(transfer.to);
-            // CRITICAL: Only add to connectedWallets and queue if the sender is confirmed connected
-            // This guarantees every wallet we explore is reachable from the starting wallet
-            connectedWallets.add(transfer.to);
-            console.log(`[QUEUE ADD] Adding ${transfer.to.slice(0, 8)}... to queue at depth ${depth + 1}, connectedWallets now has ${connectedWallets.size} wallets`);
             // Don't recurse from target wallet/exchange
             if (!reachedTarget || transfer.to !== targetWallet) {
               queue.push({ address: transfer.to, depth: depth + 1 });
@@ -401,6 +387,7 @@ export async function trackMoneyFlow(
   
   // === SORT TRANSFERS BY DEPTH ===
   // Sort so that transfers from earlier depths appear before transfers from later depths
+  // This ensures chain validation works correctly
   console.log('=== Sorting transfers by depth ===');
   allTransfers.sort((a, b) => {
     // Primary sort: by fromDepth (depth of the sender wallet)
@@ -414,12 +401,41 @@ export async function trackMoneyFlow(
   });
   console.log('✓ Transfers sorted by depth');
   
-  // NOTE: Chain validation is no longer needed because connectedWallets set guarantees
-  // every wallet explored is reachable from the starting wallet. The validation logic
-  // has been removed as it is now dead defensive code.
+  // === CHAIN VALIDATION AND FILTERING ===
+  console.log('=== Chain Validation and Filtering ===');
+  const connectedTransfers: Transfer[] = [];
+  const earlierToAddresses = new Set<string>();
+  
+  if (allTransfers.length > 0) {
+    // Check 1: First transfer's 'from' must equal the searched startAddress
+    const firstTransfer = allTransfers[0];
+    if (firstTransfer.from !== startAddress) {
+      console.error('ROOT MISMATCH: first transfer\'s from address does not match searched wallet');
+      console.error(`  Expected: ${startAddress}`);
+      console.error(`  Got: ${firstTransfer.from}`);
+    } else {
+      console.log('✓ First transfer starts from searched wallet');
+      connectedTransfers.push(firstTransfer);
+      earlierToAddresses.add(firstTransfer.to);
+    }
+    
+    // Check 2: For every transfer after the first, its 'from' must appear as a 'to' in some earlier transfer
+    for (let i = 1; i < allTransfers.length; i++) {
+      const transfer = allTransfers[i];
+      if (earlierToAddresses.has(transfer.from)) {
+        connectedTransfers.push(transfer);
+        earlierToAddresses.add(transfer.to);
+      } else {
+        console.warn('DISCONNECTED TRANSFER FILTERED OUT:', transfer, '- this wallet\'s \'from\' address was never a destination in any earlier hop');
+        console.warn(`  Transfer ${i}: from=${transfer.from.slice(0, 8)}...${transfer.from.slice(-8)} to=${transfer.to.slice(0, 8)}...${transfer.to.slice(-8)}`);
+      }
+    }
+  }
+  
+  console.log(`Chain validation: ${connectedTransfers.length} connected, ${allTransfers.length - connectedTransfers.length} disconnected (filtered out)`);
   
   return {
-    transfers: allTransfers,
+    transfers: connectedTransfers,
     reachedTarget,
     targetWallet,
   };
