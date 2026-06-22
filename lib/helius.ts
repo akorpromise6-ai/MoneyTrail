@@ -264,6 +264,8 @@ export async function trackMoneyFlow(
   while (queue.length > 0 && walletCount < maxNodes) {
     const { address, depth } = queue.shift()!;
     
+    console.log(`[QUEUE POP] Exploring wallet ${address.slice(0, 8)}... at depth ${depth}, connectedWallets has ${connectedWallets.size} wallets`);
+    
     // CRITICAL: Only explore wallets that are confirmed connected to the starting wallet
     if (!connectedWallets.has(address)) {
       console.warn(`Skipping wallet ${address.slice(0, 8)}... - not confirmed connected to start wallet`);
@@ -359,6 +361,7 @@ export async function trackMoneyFlow(
             // CRITICAL: Only add to connectedWallets and queue if the sender is confirmed connected
             // This guarantees every wallet we explore is reachable from the starting wallet
             connectedWallets.add(transfer.to);
+            console.log(`[QUEUE ADD] Adding ${transfer.to.slice(0, 8)}... to queue at depth ${depth + 1}, connectedWallets now has ${connectedWallets.size} wallets`);
             // Don't recurse from target wallet/exchange
             if (!reachedTarget || transfer.to !== targetWallet) {
               queue.push({ address: transfer.to, depth: depth + 1 });
