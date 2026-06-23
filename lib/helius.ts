@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { isExchangeWallet, getExchangeForAddress, getDexForAddress, getBridgeForAddress } from './exchanges';
+import { buildTransferTree } from './buildTransferTree';
 
 const HELIUS_API_URL = process.env.HELIUS_API_URL || 'https://mainnet.helius-rpc.com';
 const HELIUS_API_KEY = process.env.HELIUS_API_KEY;
@@ -605,22 +606,14 @@ export async function trackMoneyFlow(
   // === CHAIN VALIDATION AND FILTERING ===
   console.log('=== Chain Validation and Filtering ===');
   
-  // Simplified soscan-like logic: show all transfers involving the wallet
-  // Don't filter out transfers based on chain connectivity
-  // Just ensure the wallet is involved in the transfer
-  const connectedTransfers: Transfer[] = [];
+  // Use buildTransferTree to determine proper connectivity via BFS traversal
+  // This ensures we include all transfers reachable from the starting wallet
+  const { enrichedTransfers } = buildTransferTree(allTransfers, startAddress);
   
-  for (const transfer of allTransfers) {
-    // Include transfer if wallet is either sender or receiver
-    if (transfer.from === startAddress || transfer.to === startAddress) {
-      connectedTransfers.push(transfer);
-    }
-  }
-  
-  console.log(`Chain validation: ${connectedTransfers.length} transfers involving wallet (soscan-like logic)`);
+  console.log(`Chain validation: ${enrichedTransfers.length} transfers connected to wallet (BFS traversal)`);
   
   return {
-    transfers: connectedTransfers,
+    transfers: enrichedTransfers,
     reachedTarget,
     targetWallet,
   };
