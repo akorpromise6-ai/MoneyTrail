@@ -606,9 +606,24 @@ export async function trackMoneyFlow(
   // === CHAIN VALIDATION AND FILTERING ===
   console.log('=== Chain Validation and Filtering ===');
   
+  // Determine the actual root wallet from the discovered transfers
+  // This may differ from startAddress if auto-switching occurred
+  let actualRootWallet = startAddress;
+  if (allTransfers.length > 0) {
+    const firstTransfer = allTransfers[0];
+    // If the first transfer has the wallet as receiver, the actual root is the sender
+    if (firstTransfer.to === startAddress) {
+      actualRootWallet = firstTransfer.from;
+      console.log(`Auto-switching detected: actual root is ${actualRootWallet.slice(0, 8)}... (sender of first transfer), not ${startAddress.slice(0, 8)}... (original search)`);
+    }
+  }
+  
+  console.log(`Calling buildTransferTree with root wallet: ${actualRootWallet.slice(0, 8)}...`);
+  console.log(`Original searched wallet: ${startAddress.slice(0, 8)}...`);
+  
   // Use buildTransferTree to determine proper connectivity via BFS traversal
-  // This ensures we include all transfers reachable from the starting wallet
-  const { enrichedTransfers } = buildTransferTree(allTransfers, startAddress);
+  // This ensures we include all transfers reachable from the actual root wallet
+  const { enrichedTransfers } = buildTransferTree(allTransfers, actualRootWallet);
   
   console.log(`Chain validation: ${enrichedTransfers.length} transfers connected to wallet (BFS traversal)`);
   
