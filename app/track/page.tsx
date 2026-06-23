@@ -109,6 +109,12 @@ export default function TrackPage() {
       setError('Please enter minimum amount');
       return;
     }
+    
+    // Validate wallet address is not a URL
+    if (walletAddress && (walletAddress.startsWith('http://') || walletAddress.startsWith('https://'))) {
+      setError('Invalid wallet address: please enter a Solana wallet address (e.g., 9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM), not a URL');
+      return;
+    }
 
     setLoading(true);
     setError('');
