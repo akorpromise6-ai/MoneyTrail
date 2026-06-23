@@ -23,6 +23,11 @@ export interface TransferTreeResult {
  * This is the single source of truth for both the graph and table.
  */
 export function buildTransferTree(transfers: Transfer[], startWallet: string): TransferTreeResult {
+  // DIAGNOSTIC LOG 4: Log start of buildTransferTree
+  console.log('=== DIAGNOSTIC: Inside buildTransferTree ===');
+  console.log(`Start wallet parameter: ${startWallet}`);
+  console.log(`Total transfers input: ${transfers.length}`);
+  
   const walletNodes = new Map<string, WalletNode>();
   const enrichedTransfers: EnrichedTransfer[] = [];
   const depthCounts = new Map<number, number>();
@@ -50,16 +55,25 @@ export function buildTransferTree(transfers: Transfer[], startWallet: string): T
     outgoingTransfers.get(transfer.from)!.push(transfer);
   }
   
+  console.log(`Outgoing transfers map built: ${outgoingTransfers.size} unique senders`);
+  
   // BFS traversal
   while (queue.length > 0) {
     const { address, depth, path } = queue.shift()!;
     
+    // DIAGNOSTIC: Log wallet being processed
+    console.log(`BFS processing wallet: ${address.slice(0, 8)}... (depth ${depth}), is in visited: ${visited.has(address)}`);
+    
     const transfersFromWallet = outgoingTransfers.get(address) || [];
+    console.log(`  Found ${transfersFromWallet.length} outgoing transfers from ${address.slice(0, 8)}...`);
     
     for (const transfer of transfersFromWallet) {
       const toWallet = transfer.to;
       const newDepth = depth + 1;
       const newPath = [...path, toWallet];
+      
+      // DIAGNOSTIC: Log transfer being processed
+      console.log(`  Processing transfer: from=${transfer.from.slice(0, 8)}... to=${transfer.to.slice(0, 8)}... amount=${transfer.amount}`);
       
       // Enrich the transfer with depth and path
       enrichedTransfers.push({
@@ -82,6 +96,7 @@ export function buildTransferTree(transfers: Transfer[], startWallet: string): T
         });
         
         // Add to queue for BFS
+        console.log(`    Adding ${toWallet.slice(0, 8)}... to queue (first time seen), is in visited: ${visited.has(toWallet)}`);
         if (!visited.has(toWallet)) {
           visited.add(toWallet);
           queue.push({ address: toWallet, depth: newDepth, path: newPath });
@@ -96,6 +111,7 @@ export function buildTransferTree(transfers: Transfer[], startWallet: string): T
           existingNode.firstParentTransfer = transfer.signature;
           
           // Re-add to queue with shorter depth if not already visited at this depth
+          console.log(`    Found shorter path to ${toWallet.slice(0, 8)}... (depth ${newDepth} vs ${existingNode.depth}), is in visited: ${visited.has(toWallet)}`);
           if (!visited.has(toWallet)) {
             visited.add(toWallet);
             queue.push({ address: toWallet, depth: newDepth, path: newPath });

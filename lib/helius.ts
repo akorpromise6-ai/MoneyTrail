@@ -621,9 +621,22 @@ export async function trackMoneyFlow(
   console.log(`Calling buildTransferTree with root wallet: ${actualRootWallet.slice(0, 8)}...`);
   console.log(`Original searched wallet: ${startAddress.slice(0, 8)}...`);
   
+  // DIAGNOSTIC LOG 2: Log before buildTransferTree call
+  console.log('=== DIAGNOSTIC: Before buildTransferTree ===');
+  console.log(`Root wallet parameter: ${actualRootWallet}`);
+  console.log(`Total transfers being passed: ${allTransfers.length}`);
+  
   // Use buildTransferTree to determine proper connectivity via BFS traversal
   // This ensures we include all transfers reachable from the actual root wallet
   const { enrichedTransfers } = buildTransferTree(allTransfers, actualRootWallet);
+  
+  // DIAGNOSTIC LOG 3: Log after buildTransferTree returns
+  console.log('=== DIAGNOSTIC: After buildTransferTree ===');
+  console.log(`buildTransferTree returned ${enrichedTransfers.length} enriched transfers`);
+  console.log('First 3 enriched transfers (structure):');
+  enrichedTransfers.slice(0, 3).forEach((t, i) => {
+    console.log(`  Transfer ${i + 1}:`, JSON.stringify({ from: t.from, to: t.to, amount: t.amount, depth: t.depth, path: t.path }, null, 2));
+  });
   
   console.log(`Chain validation: ${enrichedTransfers.length} transfers connected to wallet (BFS traversal)`);
   

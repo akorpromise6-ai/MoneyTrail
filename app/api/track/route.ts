@@ -76,6 +76,14 @@ export async function POST(request: NextRequest) {
 
         const result = await trackMoneyFlow(startAddress, parseFloat(minAmount), options);
         console.log(`Money flow tracking completed. Found ${result.transfers.length} transfers`);
+        
+        // DIAGNOSTIC LOG 1: Log first 3 transfers
+        console.log('=== DIAGNOSTIC: trackMoneyFlow result ===');
+        console.log(`Total transfers in result: ${result.transfers.length}`);
+        console.log('First 3 transfers (full JSON):');
+        result.transfers.slice(0, 3).forEach((t, i) => {
+          console.log(`  Transfer ${i + 1}:`, JSON.stringify({ from: t.from, to: t.to, amount: t.amount }, null, 2));
+        });
 
         // Generate AI summary
         console.log('Generating AI summary...');
