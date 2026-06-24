@@ -610,12 +610,19 @@ export async function trackMoneyFlow(
   // This may differ from startAddress if auto-switching occurred
   let actualRootWallet = startAddress;
   if (allTransfers.length > 0) {
-    const firstTransfer = allTransfers[0];
-    // If the first transfer has the wallet as receiver, the actual root is the sender
-    if (firstTransfer.to === startAddress) {
-      actualRootWallet = firstTransfer.from;
-      console.log(`Auto-switching detected: actual root is ${actualRootWallet.slice(0, 8)}... (sender of first transfer), not ${startAddress.slice(0, 8)}... (original search)`);
+    // Search for ANY transfer where startAddress is the receiver
+    // This is immune to array position or sort order
+    const incomingTransfer = allTransfers.find(t => t.to === startAddress);
+    if (incomingTransfer) {
+      actualRootWallet = incomingTransfer.from;
+      console.log(`Auto-switching detected: actual root is ${actualRootWallet.slice(0, 8)}... (sender of incoming transfer), not ${startAddress.slice(0, 8)}... (original search)`);
     }
+  }
+  
+  // SAFETY CHECK: Verify actualRootWallet has outgoing transfers
+  const hasOutgoingTransfers = allTransfers.some(t => t.from === actualRootWallet);
+  if (!hasOutgoingTransfers) {
+    console.warn(`WARNING: actualRootWallet ${actualRootWallet.slice(0, 8)}... has no outgoing transfers in the dataset - buildTransferTree will return empty results`);
   }
   
   console.log(`Calling buildTransferTree with root wallet: ${actualRootWallet.slice(0, 8)}...`);
