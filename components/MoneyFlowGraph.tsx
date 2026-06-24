@@ -16,12 +16,22 @@ import { Transfer } from '@/lib/helius';
 import { formatAddress } from '@/lib/utils';
 import { buildTransferTree, EnrichedTransfer } from '@/lib/buildTransferTree';
 
+// Stable nodeTypes and edgeTypes objects to avoid React Flow re-render warnings
+const nodeTypes = {};
+const edgeTypes = {};
+
 interface MoneyFlowGraphProps {
   transfers: Transfer[];
   startAddress?: string;
 }
 
 const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({ transfers, startAddress: providedStartAddress }) => {
+  // DIAGNOSTIC: Log transfers prop received by component
+  console.log('=== DIAGNOSTIC: MoneyFlowGraph component received props ===');
+  console.log('transfers prop:', transfers);
+  console.log('transfers.length:', transfers.length);
+  console.log('First transfer:', transfers[0]);
+
   const [collapsedNodes, setCollapsedNodes] = React.useState<Set<string>>(new Set());
   
   const toggleNodeCollapse = (nodeId: string) => {
@@ -294,7 +304,12 @@ const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({ transfers, startAddress
 
       return { nodes: visibleNodes, edges: visibleEdges };
     } catch (error) {
-      console.error('Error building graph:', error);
+      console.error('=== ERROR building graph in useMemo ===');
+      console.error('Error details:', error);
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      console.error('This error was caught by try/catch and returned empty nodes/edges');
+      console.error('transfers.length:', transfers.length);
+      console.error('providedStartAddress:', providedStartAddress);
       return { nodes: [], edges: [] };
     }
   }, [transfers, providedStartAddress, collapsedNodes]);
@@ -350,8 +365,8 @@ const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({ transfers, startAddress
           onEdgesChange={onEdgesChange}
           connectionMode={ConnectionMode.Loose}
           fitView
-          nodeTypes={{}}
-          edgeTypes={{}}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
         >
           <Background color="#374151" gap={20} />
