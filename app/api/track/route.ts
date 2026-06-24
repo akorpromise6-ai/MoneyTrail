@@ -90,6 +90,16 @@ export async function POST(request: NextRequest) {
         const summary = await generateMoneyFlowSummary(result.transfers);
         console.log('AI summary generated successfully');
 
+        // DIAGNOSTIC: Log before sending complete event
+        console.log('=== DIAGNOSTIC: About to send complete event via SSE ===');
+        console.log(`Transfers array length: ${result.transfers.length}`);
+        console.log('First transfer structure:', result.transfers.length > 0 ? JSON.stringify({
+          from: result.transfers[0].from,
+          to: result.transfers[0].to,
+          amount: result.transfers[0].amount,
+          signature: result.transfers[0].signature
+        }, null, 2) : 'No transfers');
+
         // Send completion event
         sendEvent({
           type: 'complete',
@@ -99,6 +109,7 @@ export async function POST(request: NextRequest) {
           totalVolume: result.transfers.reduce((sum, t) => sum + t.amount, 0).toFixed(2),
           reachedTarget: result.reachedTarget,
           targetWallet: result.targetWallet,
+          effectiveRootWallet: result.effectiveRootWallet,
         });
 
         console.log('=== Request completed successfully ===');

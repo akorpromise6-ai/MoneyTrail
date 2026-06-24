@@ -22,19 +22,22 @@ export default function TrackPage() {
   const [progress, setProgress] = useState({ walletsChecked: 0, currentDepth: 0, message: '', queueSize: 0 });
   const [reachedTarget, setReachedTarget] = useState(false);
   const [targetWallet, setTargetWallet] = useState('');
+  const [effectiveRootWallet, setEffectiveRootWallet] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Use the shared tree structure to get enriched transfers with depth
   const enrichedTransfers = useMemo<EnrichedTransfer[]>(() => {
-    if (transfers.length === 0 || !walletAddress) return [];
+    const rootToUse = effectiveRootWallet || walletAddress;
+    if (transfers.length === 0 || !rootToUse) return [];
     console.log('=== Transfers passed to buildTransferTree ===');
     console.log(`Total transfers: ${transfers.length}`);
+    console.log(`Using root wallet: ${rootToUse}`);
     transfers.forEach((t, i) => {
       console.log(`  ${i + 1}. from=${t.from.slice(0, 8)}... to=${t.to.slice(0, 8)}... amount=${t.amount.toFixed(2)}`);
     });
-    const result = buildTransferTree(transfers, walletAddress);
+    const result = buildTransferTree(transfers, rootToUse);
     return result.enrichedTransfers;
-  }, [transfers, walletAddress]);
+  }, [transfers, effectiveRootWallet, walletAddress]);
 
   // Sort transfers by depth, then by parent wallet for grouping
   const sortedTransfers = useMemo<EnrichedTransfer[]>(() => {
@@ -179,10 +182,22 @@ export default function TrackPage() {
               } else if (data.type === 'found') {
                 setTransfers(prev => [...prev, data.transfer]);
               } else if (data.type === 'complete') {
+                // DIAGNOSTIC: Log when complete event is received
+                console.log('=== DIAGNOSTIC: Complete event received from SSE ===');
+                console.log('Full received data:', data);
+                console.log(`data.transfers.length: ${data.transfers?.length}`);
+                console.log('First transfer:', data.transfers?.[0]);
+
+                // DIAGNOSTIC: Log before setting transfers state
+                console.log('=== DIAGNOSTIC: About to call setTransfers ===');
+                console.log('Value being passed to setTransfers:', data.transfers);
+                console.log('Length of array being passed:', data.transfers?.length);
+
                 setTransfers(data.transfers);
                 setSummary(data.summary);
                 setReachedTarget(data.reachedTarget);
                 setTargetWallet(data.targetWallet || '');
+                setEffectiveRootWallet(data.effectiveRootWallet || walletAddress);
                 setLoading(false);
                 return;
               } else if (data.type === 'error') {
@@ -455,11 +470,19 @@ export default function TrackPage() {
             </div>
           )}
 
+          {effectiveRootWallet && effectiveRootWallet !== walletAddress && (
+            <div className='mb-6 p-4 rounded' style={{ backgroundColor: '#1a1f2e', border: '1px solid #3b82f6' }}>
+              <p className='text-sm' style={{ color: '#e0e7ff' }}>
+                <span className='font-semibold'>ℹ️ Direction Switch:</span> {formatAddress(walletAddress)} had no outgoing transfers above the minimum amount. Showing the flow FROM {formatAddress(effectiveRootWallet)}, which sent money into your searched wallet.
+              </p>
+            </div>
+          )}
+
           <div className='mb-8 p-6 rounded' style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
             <h2 className='text-xl font-bold font-mono mb-6' style={{ color: 'var(--foreground)' }}>
               Transaction Graph
             </h2>
-            <MoneyFlowGraph transfers={transfers} startAddress={walletAddress} />
+            <MoneyFlowGraph transfers={transfers} startAddress={effectiveRootWallet || walletAddress} />
           </div>
 
           <div className='mb-8 p-6 rounded' style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>

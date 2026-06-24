@@ -116,6 +116,7 @@ export interface TrackingResult {
   reachedTarget: boolean;
   targetWallet?: string;
   summary?: string;
+  effectiveRootWallet?: string;
 }
 
 export async function getTransfers(address: string, minAmount: number): Promise<Transfer[]> {
@@ -609,19 +610,13 @@ export async function trackMoneyFlow(
   // Determine the actual root wallet from the discovered transfers
   // This may differ from startAddress if auto-switching occurred
   let actualRootWallet = startAddress;
-  if (allTransfers.length > 0) {
-    // Search for ANY transfer where startAddress is the receiver
-    // This is immune to array position or sort order
-    const incomingTransfer = allTransfers.find(t => t.to === startAddress);
-    if (incomingTransfer) {
-      actualRootWallet = incomingTransfer.from;
-      console.log(`Auto-switching detected: actual root is ${actualRootWallet.slice(0, 8)}... (sender of incoming transfer), not ${startAddress.slice(0, 8)}... (original search)`);
-    }
+  const incomingToStart = allTransfers.find(t => t.to === startAddress);
+  if (incomingToStart) {
+    actualRootWallet = incomingToStart.from;
+    console.log(`Auto-switching detected: actual root is ${actualRootWallet.slice(0, 8)}... (sender of transfer into ${startAddress.slice(0, 8)}...)`);
   }
-  
-  // SAFETY CHECK: Verify actualRootWallet has outgoing transfers
-  const hasOutgoingTransfers = allTransfers.some(t => t.from === actualRootWallet);
-  if (!hasOutgoingTransfers) {
+  const rootHasOutgoing = allTransfers.some(t => t.from === actualRootWallet);
+  if (!rootHasOutgoing) {
     console.warn(`WARNING: actualRootWallet ${actualRootWallet.slice(0, 8)}... has no outgoing transfers in the dataset - buildTransferTree will return empty results`);
   }
   
@@ -646,10 +641,11 @@ export async function trackMoneyFlow(
   });
   
   console.log(`Chain validation: ${enrichedTransfers.length} transfers connected to wallet (BFS traversal)`);
-  
+
   return {
     transfers: enrichedTransfers,
     reachedTarget,
     targetWallet,
+    effectiveRootWallet: actualRootWallet,
   };
 }
