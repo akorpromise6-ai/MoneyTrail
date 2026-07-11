@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, ExternalLink, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import MoneyFlowGraph from '@/components/MoneyFlowGraph';
 import { Transfer } from '@/lib/helius';
 import { formatAddress } from '@/lib/utils';
@@ -217,33 +217,60 @@ export default function TrackPage() {
   };
 
   return (
-    <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'>
-      {/* Hero Section */}
-      <div className='mb-8' style={{ maxHeight: '30vh' }}>
-        <h1 className='text-3xl sm:text-4xl font-bold font-mono mb-3' style={{ color: 'var(--foreground)' }}>
-          Follow the money. See everything.
-        </h1>
-        <p className='text-base sm:text-lg mb-6 max-w-3xl' style={{ color: 'var(--muted)' }}>
-          Trace Solana wallet transfers across multiple hops and see exactly where funds end up: exchanges, DEXs, bridges, or dead ends.
-        </p>
-        <div className='flex flex-wrap gap-2 text-xs font-mono'>
-          <span className='px-3 py-1 rounded' style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
-            Multi-hop tracing
-          </span>
-          <span className='px-3 py-1 rounded' style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
-            Cycle detection
-          </span>
-          <span className='px-3 py-1 rounded' style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
-            Exchange identification
-          </span>
-          <span className='px-3 py-1 rounded' style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
-            On-chain verified
-          </span>
+    <div className='h-screen w-screen flex flex-col bg-background overflow-hidden'>
+      {/* Top Navigation Bar */}
+      <header className='flex items-center justify-between whitespace-nowrap border-b border-solid border-border bg-surface px-4 sm:px-6 py-3 shrink-0 z-20'>
+        <div className='flex items-center gap-2 sm:gap-4'>
+          <div className='size-6 text-accent'>
+            <Search className='w-6 h-6' />
+          </div>
+          <h2 className='text-foreground text-base sm:text-lg font-bold font-display leading-tight tracking-[-0.015em]'>
+            MoneyTrail
+          </h2>
+          {walletAddress && (
+            <div className='hidden sm:flex items-center gap-2 ml-4 sm:ml-8 border-l border-border pl-4 sm:pl-8'>
+              <span className='text-muted hover:text-accent transition-colors text-sm font-medium cursor-pointer'>Trace</span>
+              <span className='text-border text-sm'>/</span>
+              <span className='text-foreground text-sm font-mono bg-border/30 px-2 py-0.5 rounded'>
+                {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+              </span>
+            </div>
+          )}
         </div>
-      </div>
+        <div className='flex items-center gap-2 sm:gap-4'>
+          <button className='flex items-center justify-center size-8 rounded hover:bg-border transition-colors text-muted' title='System Diagnostics'>
+            <RefreshCw className='w-4 h-4' />
+          </button>
+          <button className='hidden sm:flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded h-8 px-4 bg-accent text-background text-sm font-bold font-display transition-opacity hover:opacity-90'>
+            <span className='truncate'>Export CSV</span>
+          </button>
+        </div>
+      </header>
 
-      {/* Search Form */}
-      <div className='mb-8 p-6 rounded' style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
+      {/* Main Workspace Area */}
+      <div className='flex flex-1 overflow-hidden relative'>
+        {/* Left Filter Sidebar */}
+        <aside className='w-[280px] bg-surface border-r border-border flex flex-col shrink-0 z-10 hidden lg:flex xl:flex'>
+          <div className='p-4 border-b border-border flex items-center justify-between'>
+            <h3 className='font-display font-semibold text-sm text-foreground uppercase tracking-wider'>Filters</h3>
+            <button className='text-muted hover:text-foreground'>
+              <ChevronDown className='w-4 h-4' />
+            </button>
+          </div>
+          <div className='flex-1 overflow-y-auto p-4 space-y-6'>
+            <div className='space-y-3'>
+              <div className='flex justify-between items-center'>
+                <label className='text-xs font-medium text-muted uppercase tracking-wide'>Volume Threshold</label>
+                <span className='text-xs font-mono text-accent'>&gt; {minAmount} SOL</span>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* Center Content Area */}
+        <main className='flex-1 flex flex-col overflow-hidden bg-dot-pattern'>
+          {/* Search Form (Collapsible) */}
+          <div className={`p-6 bg-surface border-b border-border shrink-0 transition-all ${transfers.length > 0 ? 'hidden' : ''}`}>
         {/* Basic Inputs */}
         <div className='grid grid-cols-1 md:grid-cols-2 gap-4 mb-4'>
           <div>
@@ -407,187 +434,178 @@ export default function TrackPage() {
           </div>
         )}
 
-        {/* Submit Button */}
-        <button
-          onClick={handleTrack}
-          disabled={loading}
-          className='w-full py-3 px-6 rounded flex items-center justify-center gap-2 font-mono text-sm font-semibold uppercase tracking-wider transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90'
-          style={{ 
-            backgroundColor: 'var(--accent)', 
-            color: '#0B0E11',
-            borderRadius: '4px'
-          }}
-        >
-          <Search className='w-4 h-4' />
-          {loading ? 'Tracking...' : 'Track Money Flow'}
-        </button>
+          {/* Submit Button */}
+          <button
+            onClick={handleTrack}
+            disabled={loading}
+            className='w-full h-10 bg-accent text-background font-display font-medium text-[13px] rounded hover:bg-white hover:shadow-[0_0_15px_rgba(45,212,191,0.4)] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed'
+          >
+            <Search className='w-4 h-4' />
+            {loading ? 'Tracking...' : 'Track Money Flow'}
+          </button>
 
-        {/* Progress Bar */}
-        {loading && (
-          <div className='mt-4'>
-            <div className='flex items-center justify-between mb-2'>
-              <span className='text-sm font-mono' style={{ color: 'var(--foreground)' }}>{progress.message}</span>
-              <span className='text-sm font-mono' style={{ color: 'var(--muted)' }}>
-                Depth: {progress.currentDepth} · Queue: {progress.queueSize}
-              </span>
+          {/* Progress Bar */}
+          {loading && (
+            <div className='mt-4'>
+              <div className='flex items-center justify-between mb-2'>
+                <span className='text-sm font-mono text-foreground'>{progress.message}</span>
+                <span className='text-sm font-mono text-muted'>
+                  Depth: {progress.currentDepth} · Queue: {progress.queueSize}
+                </span>
+              </div>
+              <div className='w-full rounded bg-border h-2'>
+                <div 
+                  className='h-full rounded transition-all duration-300 bg-accent'
+                  style={{ width: `${Math.min(progress.walletsChecked * 5, 100)}%` }}
+                />
+              </div>
             </div>
-            <div className='w-full rounded' style={{ backgroundColor: 'var(--border)', height: '8px' }}>
-              <div 
-                className='h-full rounded transition-all duration-300'
-                style={{ 
-                  width: `${Math.min(progress.walletsChecked * 5, 100)}%`,
-                  backgroundColor: 'var(--accent)'
-                }}
-              />
-            </div>
-          </div>
-        )}
+          )}
 
-        {/* Error Message */}
-        {error && (
-          <div className='mt-4 p-4 rounded border font-mono text-sm' style={{ 
-            backgroundColor: 'rgba(239, 68, 68, 0.1)', 
-            borderColor: 'var(--alert)', 
-            color: 'var(--alert)'
-          }}>
-            {error}
-          </div>
-        )}
+          {/* Error Message */}
+          {error && (
+            <div className='mt-4 p-4 rounded border font-mono text-sm bg-accent-red/10 border-accent-red text-accent-red'>
+              {error}
+            </div>
+          )}
+        </div>
+
+          {/* Results Area */}
+          {transfers.length > 0 && (
+            <div className='flex-1 overflow-hidden flex flex-col'>
+              {/* Target Reached Banner */}
+              {reachedTarget && (
+                <div className='mb-4 p-4 rounded border font-mono text-sm bg-accent-green/10 border-accent-green text-accent-green mx-6 mt-4'>
+                  <h3 className='font-semibold mb-2'>✓ Target Reached</h3>
+                  <p>
+                    Funds successfully tracked to target wallet: {formatAddress(targetWallet || '')}
+                  </p>
+                </div>
+              )}
+
+              {/* Direction Switch Banner */}
+              {effectiveRootWallet && effectiveRootWallet !== walletAddress && (
+                <div className='mb-4 p-4 rounded bg-[#1a1f2e] border border-[#3b82f6] mx-6'>
+                  <p className='text-sm text-[#e0e7ff]'>
+                    <span className='font-semibold'>ℹ️ Direction Switch:</span> {formatAddress(walletAddress)} had no outgoing transfers above the minimum amount. Showing the flow FROM {formatAddress(effectiveRootWallet)}, which sent money into your searched wallet.
+                  </p>
+                </div>
+              )}
+
+              {/* Graph Section */}
+              <div className='flex-1 overflow-hidden px-4 sm:px-6 py-4'>
+                <MoneyFlowGraph transfers={transfers} startAddress={effectiveRootWallet || walletAddress} />
+              </div>
+
+              {/* AI Summary Section */}
+              <div className='px-4 sm:px-6 pb-4'>
+                <div className='p-4 sm:p-6 rounded bg-surface border border-border'>
+                  <h2 className='text-lg sm:text-xl font-bold font-display mb-4 sm:mb-6 text-foreground uppercase tracking-wider'>
+                    AI Summary
+                  </h2>
+                  <div className='prose max-w-none'>
+                    <p className='whitespace-pre-wrap text-foreground text-sm sm:text-base'>{summary}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Transaction Table Section */}
+              <div className='px-4 sm:px-6 pb-6'>
+                <div className='p-4 sm:p-6 rounded bg-surface border border-border'>
+                  <h2 className='text-lg sm:text-xl font-bold font-display mb-4 sm:mb-6 text-foreground uppercase tracking-wider'>
+                    Transaction Details
+                  </h2>
+                  <div className='overflow-x-auto'>
+                    <table className='w-full'>
+                      <thead>
+                        <tr className='border-b border-border'>
+                          <th className='text-left py-3 px-4 font-semibold font-mono text-xs text-muted uppercase tracking-wider'>
+                            Hop
+                          </th>
+                          <th className='text-left py-3 px-4 font-semibold font-mono text-xs text-muted uppercase tracking-wider'>
+                            From
+                          </th>
+                          <th className='text-left py-3 px-4 font-semibold font-mono text-xs text-muted uppercase tracking-wider'>
+                            To
+                          </th>
+                          <th className='text-right py-3 px-4 font-semibold font-mono text-xs text-muted uppercase tracking-wider'>
+                            Amount (SOL)
+                          </th>
+                          <th className='text-left py-3 px-4 font-semibold font-mono text-xs text-muted uppercase tracking-wider'>
+                            Timestamp
+                          </th>
+                          <th className='text-left py-3 px-4 font-semibold font-mono text-xs text-muted uppercase tracking-wider'>
+                            Signature
+                          </th>
+                          <th className='text-left py-3 px-4 font-semibold font-mono text-xs text-muted uppercase tracking-wider'>
+                            Exchange
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sortedTransfers.map((transfer, index) => (
+                          <tr
+                            key={transfer.signature}
+                            className='border-b border-border/50 hover:bg-border/30 cursor-pointer'
+                            style={{ 
+                              backgroundColor: index % 2 === 0 ? 'transparent' : 'rgba(17, 20, 26, 0.5)',
+                              borderLeft: `3px solid ${getDepthBorderColor(transfer.depth)}`,
+                            }}
+                          >
+                            <td className='py-2 px-4 font-mono text-xs font-bold text-accent'>
+                              {transfer.depth}
+                            </td>
+                            <td className='py-2 px-4 font-mono text-xs text-foreground'>
+                              {formatAddress(transfer.from)}
+                            </td>
+                            <td className='py-2 px-4 font-mono text-xs text-foreground'>
+                              {formatAddress(transfer.to)}
+                            </td>
+                            <td className='py-2 px-4 font-mono text-xs text-right tabular-nums text-accent-green'>
+                              {transfer.amount.toFixed(4)}
+                            </td>
+                            <td className='py-2 px-4 text-xs text-muted'>
+                              {new Date(transfer.timestamp).toLocaleString()}
+                            </td>
+                            <td className='py-2 px-4 font-mono text-[10px]'>
+                              <a
+                                href={`https://solscan.io/tx/${transfer.signature}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className='flex items-center gap-1 transition-colors text-accent hover:opacity-80'
+                              >
+                                {formatAddress(transfer.signature, 16, 0)}
+                                <ExternalLink className='w-3 h-3' />
+                              </a>
+                            </td>
+                            <td className='py-2 px-4 text-xs'>
+                              {transfer.isExchange ? (
+                                <span className='px-2 py-1 rounded text-[10px] font-mono bg-accent-orange/20 text-accent-orange'>
+                                  {transfer.exchangeName}
+                                </span>
+                              ) : transfer.isDex ? (
+                                <span className='px-2 py-1 rounded text-[10px] font-mono bg-[rgba(139, 92, 246, 0.2)] text-[#8b5cf6]'>
+                                  {transfer.dexName}
+                                </span>
+                              ) : transfer.isBridge ? (
+                                <span className='px-2 py-1 rounded text-[10px] font-mono bg-[rgba(20, 184, 166, 0.2)] text-[#14b8a6]'>
+                                  {transfer.bridgeName}
+                                </span>
+                              ) : (
+                                '-'
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
       </div>
-
-      {transfers.length > 0 && (
-        <>
-          {reachedTarget && (
-            <div className='mb-8 p-4 rounded border font-mono text-sm' style={{ 
-              backgroundColor: 'rgba(52, 211, 153, 0.1)', 
-              borderColor: 'var(--success)', 
-              color: 'var(--success)'
-            }}>
-              <h3 className='font-semibold mb-2'>✓ Target Reached</h3>
-              <p>
-                Funds successfully tracked to target wallet: {formatAddress(targetWallet || '')}
-              </p>
-            </div>
-          )}
-
-          {effectiveRootWallet && effectiveRootWallet !== walletAddress && (
-            <div className='mb-6 p-4 rounded' style={{ backgroundColor: '#1a1f2e', border: '1px solid #3b82f6' }}>
-              <p className='text-sm' style={{ color: '#e0e7ff' }}>
-                <span className='font-semibold'>ℹ️ Direction Switch:</span> {formatAddress(walletAddress)} had no outgoing transfers above the minimum amount. Showing the flow FROM {formatAddress(effectiveRootWallet)}, which sent money into your searched wallet.
-              </p>
-            </div>
-          )}
-
-          <div className='mb-8 p-6 rounded' style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
-            <h2 className='text-xl font-bold font-mono mb-6' style={{ color: 'var(--foreground)' }}>
-              Transaction Graph
-            </h2>
-            <MoneyFlowGraph transfers={transfers} startAddress={effectiveRootWallet || walletAddress} />
-          </div>
-
-          <div className='mb-8 p-6 rounded' style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
-            <h2 className='text-xl font-bold font-mono mb-6' style={{ color: 'var(--foreground)' }}>
-              AI Summary
-            </h2>
-            <div className='prose max-w-none'>
-              <p className='whitespace-pre-wrap' style={{ color: 'var(--foreground)' }}>{summary}</p>
-            </div>
-          </div>
-
-          <div className='p-6 rounded' style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
-            <h2 className='text-xl font-bold font-mono mb-6' style={{ color: 'var(--foreground)' }}>
-              Transaction Details
-            </h2>
-            <div className='overflow-x-auto'>
-              <table className='w-full'>
-                <thead>
-                  <tr className='border-b' style={{ borderColor: 'var(--border)' }}>
-                    <th className='text-left py-3 px-4 font-semibold font-mono text-sm' style={{ color: 'var(--foreground)' }}>
-                      Hop
-                    </th>
-                    <th className='text-left py-3 px-4 font-semibold font-mono text-sm' style={{ color: 'var(--foreground)' }}>
-                      From
-                    </th>
-                    <th className='text-left py-3 px-4 font-semibold font-mono text-sm' style={{ color: 'var(--foreground)' }}>
-                      To
-                    </th>
-                    <th className='text-right py-3 px-4 font-semibold font-mono text-sm' style={{ color: 'var(--foreground)' }}>
-                      Amount (SOL)
-                    </th>
-                    <th className='text-left py-3 px-4 font-semibold font-mono text-sm' style={{ color: 'var(--foreground)' }}>
-                      Timestamp
-                    </th>
-                    <th className='text-left py-3 px-4 font-semibold font-mono text-sm' style={{ color: 'var(--foreground)' }}>
-                      Signature
-                    </th>
-                    <th className='text-left py-3 px-4 font-semibold font-mono text-sm' style={{ color: 'var(--foreground)' }}>
-                      Exchange
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedTransfers.map((transfer, index) => (
-                    <tr
-                      key={transfer.signature}
-                      className='border-b hover:opacity-80 transition-opacity'
-                      style={{ 
-                        borderColor: 'var(--border)',
-                        backgroundColor: index % 2 === 0 ? 'var(--surface)' : '#11141A',
-                        borderLeft: `3px solid ${getDepthBorderColor(transfer.depth)}`,
-                      }}
-                    >
-                      <td className='py-3 px-4 font-mono text-sm font-bold' style={{ color: 'var(--accent)' }}>
-                        {transfer.depth}
-                      </td>
-                      <td className='py-3 px-4 font-mono text-sm' style={{ color: 'var(--foreground)' }}>
-                        {formatAddress(transfer.from)}
-                      </td>
-                      <td className='py-3 px-4 font-mono text-sm' style={{ color: 'var(--foreground)' }}>
-                        {formatAddress(transfer.to)}
-                      </td>
-                      <td className='py-3 px-4 font-mono text-sm text-right tabular-nums' style={{ color: 'var(--success)' }}>
-                        {transfer.amount.toFixed(4)}
-                      </td>
-                      <td className='py-3 px-4 text-sm' style={{ color: 'var(--muted)' }}>
-                        {new Date(transfer.timestamp).toLocaleString()}
-                      </td>
-                      <td className='py-3 px-4 font-mono text-xs'>
-                        <a
-                          href={`https://solscan.io/tx/${transfer.signature}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className='flex items-center gap-1 transition-colors'
-                          style={{ color: 'var(--accent)' }}
-                        >
-                          {formatAddress(transfer.signature, 16, 0)}
-                          <ExternalLink className='w-3 h-3' />
-                        </a>
-                      </td>
-                      <td className='py-3 px-4 text-sm'>
-                        {transfer.isExchange ? (
-                          <span className='px-2 py-1 rounded text-xs font-mono' style={{ backgroundColor: 'rgba(249, 115, 22, 0.2)', color: '#f97316' }}>
-                            {transfer.exchangeName}
-                          </span>
-                        ) : transfer.isDex ? (
-                          <span className='px-2 py-1 rounded text-xs font-mono' style={{ backgroundColor: 'rgba(139, 92, 246, 0.2)', color: '#8b5cf6' }}>
-                            {transfer.dexName}
-                          </span>
-                        ) : transfer.isBridge ? (
-                          <span className='px-2 py-1 rounded text-xs font-mono' style={{ backgroundColor: 'rgba(20, 184, 166, 0.2)', color: '#14b8a6' }}>
-                            {transfer.bridgeName}
-                          </span>
-                        ) : (
-                          '-'
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }

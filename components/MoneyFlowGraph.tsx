@@ -92,7 +92,7 @@ const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({ transfers, startAddress
           const shortAddress = formatAddress(address);
           
           let bgColor = '#14181D'; // Dark surface for intermediate
-          let borderColor = '1px solid #262B33';
+          let borderColor = '1px solid #1E293B';
           let label = '';
           let nodeSize = isStartNode ? { width: 180, height: 80 } : { width: 140, height: 60 };
           
@@ -119,24 +119,24 @@ const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({ transfers, startAddress
 
           if (isExchangeNode) {
             bgColor = '#1a1614'; // Desaturated orange/dark for exchanges
-            borderColor = '2px solid #c97a3d'; // Desaturated orange border
+            borderColor = '2px solid #F59E0B'; // Orange border (accent-orange)
             const exchangeName = enrichedTransfers.find(t => t.to === address)?.exchangeName;
             label = exchangeName || 'Exchange';
           } else if (isDexNode) {
             bgColor = '#16141a'; // Desaturated purple/dark for DEX
-            borderColor = '2px solid #9c7ac9'; // Desaturated purple border
+            borderColor = '2px solid #A78BFA'; // Purple border
             const dexName = enrichedTransfers.find(t => t.to === address)?.dexName;
             label = dexName || 'DEX';
           } else if (isBridgeNode) {
             bgColor = '#14161a'; // Desaturated teal/dark for bridges
-            borderColor = '2px solid #4ac9a6'; // Desaturated teal border
+            borderColor = '2px solid #2DD4BF'; // Teal border (accent)
             const bridgeName = enrichedTransfers.find(t => t.to === address)?.bridgeName;
             label = bridgeName || 'Bridge';
           }
 
           // Add merge point indicator
           if (isMergePointNode) {
-            borderColor = '2px solid #c9a63d'; // Desaturated gold border for merge points
+            borderColor = '2px solid #F59E0B'; // Orange border for merge points
           }
 
           nodeMap.set(address, {
@@ -171,9 +171,9 @@ const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({ transfers, startAddress
             position: { x, y },
             style: {
               background: bgColor,
-              color: '#E8EAED',
+              color: '#E2E8F0',
               border: borderColor,
-              borderRadius: '6px',
+              borderRadius: '4px',
               padding: isStartNode ? '16px' : '12px',
               minWidth: nodeSize.width,
               minHeight: nodeSize.height,
@@ -204,12 +204,12 @@ const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({ transfers, startAddress
             label: `${amount.toFixed(2)} SOL`,
             markerEnd: {
               type: MarkerType.ArrowClosed,
-              color: '#ef4444',
+              color: '#F43F5E',
               width: 20,
               height: 20,
             },
             style: {
-              stroke: '#ef4444',
+              stroke: '#F43F5E',
               strokeWidth: 2,
               strokeDasharray: '5,5',
             },
@@ -238,17 +238,17 @@ const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({ transfers, startAddress
           label: `${amount.toFixed(2)} SOL`,
           markerEnd: {
             type: MarkerType.ArrowClosed,
-            color: '#8B92A0',
+            color: '#64748B',
             width: 15 + strokeWidth * 2,
             height: 15 + strokeWidth * 2,
           },
           style: {
-            stroke: '#8B92A0',
+            stroke: '#64748B',
             strokeWidth: strokeWidth,
           },
           animated: false,
           labelStyle: {
-            fill: '#E8EAED',
+            fill: '#E2E8F0',
             fontSize: 10,
             fontWeight: 600,
           },
@@ -325,39 +325,39 @@ const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({ transfers, startAddress
 
   return (
     <div className="w-full">
-      <div className="p-4 rounded mb-4 font-mono text-sm" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}>
-        <h3 className="font-semibold mb-3" style={{ color: 'var(--foreground)' }}>Graph Legend</h3>
+      <div className="p-4 rounded mb-4 font-mono text-sm bg-surface border border-border">
+        <h3 className="font-display font-semibold mb-3 text-foreground uppercase tracking-wider">Graph Legend</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded" style={{ backgroundColor: '#0B0E11', border: '2px solid #2DD4BF' }}></div>
-            <span style={{ color: 'var(--muted)' }}>Starting Wallet</span>
+            <span className="text-muted">Starting Wallet</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#1a1614', border: '2px solid #c97a3d' }}></div>
-            <span style={{ color: 'var(--muted)' }}>Exchange</span>
+            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#1a1614', border: '2px solid #F59E0B' }}></div>
+            <span className="text-muted">Exchange</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#16141a', border: '2px solid #9c7ac9' }}></div>
-            <span style={{ color: 'var(--muted)' }}>DEX</span>
+            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#16141a', border: '2px solid #A78BFA' }}></div>
+            <span className="text-muted">DEX</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#14161a', border: '2px solid #4ac9a6' }}></div>
-            <span style={{ color: 'var(--muted)' }}>Bridge</span>
+            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#14161a', border: '2px solid #2DD4BF' }}></div>
+            <span className="text-muted">Bridge</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#14181D', border: '1px solid #262B33' }}></div>
-            <span style={{ color: 'var(--muted)' }}>Intermediate Wallet</span>
+            <div className="w-4 h-4 rounded" style={{ backgroundColor: '#14181D', border: '1px solid #1E293B' }}></div>
+            <span className="text-muted">Intermediate Wallet</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded" style={{ border: '2px solid #c9a63d' }}></div>
-            <span style={{ color: 'var(--muted)' }}>Merge Point</span>
+            <div className="w-4 h-4 rounded" style={{ border: '2px solid #F59E0B' }}></div>
+            <span className="text-muted">Merge Point</span>
           </div>
         </div>
-        <div className="mt-3 pt-3 text-xs" style={{ borderTop: '1px solid var(--border)', color: 'var(--muted)' }}>
-          <span className="font-semibold" style={{ color: 'var(--foreground)' }}>→ Arrows</span> show money flow direction · <span className="font-semibold" style={{ color: 'var(--foreground)' }}>Thickness</span> scales with amount · <span className="font-semibold" style={{ color: 'var(--foreground)' }}>Red dashed lines</span> indicate cycles
+        <div className="mt-3 pt-3 text-xs border-t border-border text-muted">
+          <span className="font-semibold text-foreground">→ Arrows</span> show money flow direction · <span className="font-semibold text-foreground">Thickness</span> scales with amount · <span className="font-semibold text-foreground">Red dashed lines</span> indicate cycles
         </div>
       </div>
-      <div className="w-full h-[600px] rounded" style={{ backgroundColor: '#0B0E11', border: '1px solid var(--border)' }}>
+      <div className="w-full h-[600px] rounded bg-background border border-border">
         <ReactFlow
           nodes={nodes}
           edges={edges}

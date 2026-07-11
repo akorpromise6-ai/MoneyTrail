@@ -11,7 +11,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           {/* Product */}
           <div>
-            <h3 className="font-mono font-semibold mb-4" style={{ color: 'var(--foreground)' }}>Product</h3>
+            <h3 className="font-display font-semibold mb-4 uppercase tracking-wider text-xs" style={{ color: 'var(--foreground)' }}>Product</h3>
             <ul className="space-y-2">
               <li>
                 <Link href="/" className="text-sm font-mono opacity-60 hover:opacity-100 transition-opacity" style={{ color: 'var(--foreground)' }}>
@@ -28,7 +28,7 @@ export default function Footer() {
 
           {/* Docs */}
           <div>
-            <h3 className="font-mono font-semibold mb-4" style={{ color: 'var(--foreground)' }}>Docs</h3>
+            <h3 className="font-display font-semibold mb-4 uppercase tracking-wider text-xs" style={{ color: 'var(--foreground)' }}>Docs</h3>
             <ul className="space-y-2">
               <li>
                 <Link href="/docs" className="text-sm font-mono opacity-60 hover:opacity-100 transition-opacity" style={{ color: 'var(--foreground)' }}>
@@ -45,7 +45,7 @@ export default function Footer() {
 
           {/* Contact */}
           <div>
-            <h3 className="font-mono font-semibold mb-4" style={{ color: 'var(--foreground)' }}>Contact</h3>
+            <h3 className="font-display font-semibold mb-4 uppercase tracking-wider text-xs" style={{ color: 'var(--foreground)' }}>Contact</h3>
             <ul className="space-y-2">
               <li>
                 <Link href="/contact" className="text-sm font-mono opacity-60 hover:opacity-100 transition-opacity" style={{ color: 'var(--foreground)' }}>
@@ -80,7 +80,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-4 text-center text-sm font-mono opacity-60" style={{ color: 'var(--foreground)' }}>
-          © 2024 TrackTheMoney. All rights reserved.
+          © 2024 MoneyTrail. All rights reserved.
         </div>
       </div>
     </footer>

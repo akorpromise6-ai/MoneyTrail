@@ -19,8 +19,8 @@ export default function Sidebar() {
   return (
     <aside className="w-64 min-h-screen p-6 flex flex-col" style={{ backgroundColor: 'var(--surface)', borderRight: '1px solid var(--border)' }}>
       <div className="mb-8">
-        <h1 className="text-xl font-bold font-mono" style={{ color: 'var(--foreground)' }}>
-          TrackTheMoney
+        <h1 className="text-xl font-bold font-display uppercase tracking-wider" style={{ color: 'var(--foreground)' }}>
+          MoneyTrail
         </h1>
       </div>
 
@@ -40,6 +40,7 @@ export default function Sidebar() {
                   style={{
                     backgroundColor: isActive ? 'var(--accent)' : 'transparent',
                     color: isActive ? '#0B0E11' : 'var(--foreground)',
+                    border: isActive ? '1px solid var(--accent)' : '1px solid transparent',
                   }}
                 >
                   <Icon className="w-4 h-4" />
